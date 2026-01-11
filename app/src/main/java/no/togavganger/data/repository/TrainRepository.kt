@@ -35,6 +35,9 @@ class TrainRepository {
                         destinationDisplay {
                             frontText
                         }
+                        quay {
+                            publicCode
+                        }
                         serviceJourney {
                             line {
                                 publicCode
@@ -68,6 +71,8 @@ class TrainRepository {
                     if (topLevelLineCode.isEmpty()) {
                         topLevelLineCode = lineCode
                     }
+                    val quay = call.optJSONObject("quay")
+                    val platformCode = quay?.optString("publicCode", null)
                     val aimedTimeRaw = call.getString("aimedDepartureTime")
                     val expectedTimeRaw = call.optString("expectedDepartureTime", aimedTimeRaw)
                     val aimedDateTime = ZonedDateTime.parse(aimedTimeRaw)
@@ -76,7 +81,7 @@ class TrainRepository {
                         .isAfter(aimedDateTime.truncatedTo(ChronoUnit.MINUTES))
                     val aimedTime = aimedDateTime.format(timeFormatter)
                     val expectedTime = expectedDateTime.format(timeFormatter)
-                    departures.add(Departure(dest, aimedTime, expectedTime, isDelayed))
+                    departures.add(Departure(dest, aimedTime, expectedTime, isDelayed, platformCode))
                 }
                 TrainData(stopName, topLevelLineCode, departures)
             } catch (e: Exception) {

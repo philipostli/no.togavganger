@@ -21,7 +21,6 @@ import androidx.wear.protolayout.material3.primaryLayout
 import androidx.wear.protolayout.material3.text
 import androidx.wear.protolayout.material3.Typography
 import androidx.wear.protolayout.types.layoutString
-import no.togavganger.data.Departure
 import no.togavganger.data.TrainData
 import no.togavganger.data.repository.TrainRepository
 
@@ -114,11 +113,11 @@ fun tileLayout(
                         addContent(LayoutElementBuilders.Spacer.Builder().setHeight(dp(4f)).build())
 
                         val maxDepartures = if (deviceConfiguration.screenHeightDp < 220) 2 else 3
-                        trainData.departures.take(maxDepartures).forEach { departure ->
+                        trainData.departures.take(maxDepartures).forEachIndexed { index, departure ->
                             addContent(
                                 button(
                                     onClick = androidx.wear.protolayout.modifiers.clickable(
-                                        id = "go_${departure.destination}_${departure.aimedTime}",
+                                        id = "go_${departure.destination}_${departure.aimedTime}_$index",
                                         action = androidx.wear.protolayout.ActionBuilders.launchAction(
                                             android.content.ComponentName(context.packageName, "no.togavganger.presentation.MainActivity")
                                         )
@@ -186,13 +185,13 @@ fun tileLayout(
 @Preview(device = WearDevices.LARGE_ROUND, name = "Large Round")
 @Preview(device = WearDevices.SMALL_ROUND, name = "Small Round")
 internal fun trainTilePreview(context: Context): TilePreviewData {
-    val mockData = no.togavganger.data.TrainData(
+    val mockData = TrainData(
         "Haugenstua stasjon",
         "L1",
         listOf(
-            no.togavganger.data.Departure("Spikkestad", "21:55", "21:56", true),
-            no.togavganger.data.Departure("Oslo S", "22:10", "22:10", false),
-            no.togavganger.data.Departure("Asker", "22:25", "22:25", false)
+            no.togavganger.data.Departure("Spikkestad", "21:55", "21:56", true, "1"),
+            no.togavganger.data.Departure("Oslo S", "22:10", "22:10", false, "2"),
+            no.togavganger.data.Departure("Asker", "22:25", "22:25", false, "3")
         )
     )
     return TilePreviewData(
