@@ -18,11 +18,16 @@ import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.wear.compose.foundation.lazy.ScalingLazyColumn
 import androidx.wear.compose.foundation.lazy.rememberScalingLazyListState
+import androidx.wear.compose.material3.ListHeader
+import androidx.wear.compose.foundation.lazy.TransformingLazyColumn
+import androidx.wear.compose.foundation.lazy.rememberTransformingLazyColumnState
+import androidx.wear.compose.material3.ScreenScaffold
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
@@ -30,15 +35,15 @@ import androidx.lifecycle.viewmodel.compose.viewModel
 import androidx.wear.compose.material.Button
 import androidx.wear.compose.material.ButtonDefaults
 import androidx.wear.compose.material.MaterialTheme
-import androidx.wear.compose.material.Text
 import androidx.wear.compose.material.dialog.Alert
 import androidx.wear.compose.material.dialog.Dialog
 import androidx.wear.compose.material3.EdgeButton
 import androidx.wear.compose.material3.EdgeButtonSize
-import androidx.wear.compose.material3.Text as Material3Text
+import androidx.wear.compose.material3.Text
 import androidx.wear.compose.material3.TimeText
 import androidx.wear.tooling.preview.devices.WearDevices
 import no.togavganger.data.Departure
+import no.togavganger.data.TrainData
 import no.togavganger.presentation.theme.TogavgangerTheme
 import no.togavganger.presentation.viewmodel.TrainEvent
 import no.togavganger.presentation.viewmodel.TrainViewModel
@@ -51,6 +56,109 @@ class MainActivity : ComponentActivity() {
         setContent {
             TogavgangerTheme {
                 TrainDeparturesScreen()
+                // TestScreen("Android", {})
+            }
+        }
+    }
+}
+
+@Composable
+fun TestScreen(
+    onShowList: () -> Unit
+) {
+    val scrollState = rememberTransformingLazyColumnState()
+
+    /* If you have enough items in your list, use [TransformingLazyColumn] which is an optimized
+     * version of LazyColumn for wear devices with some added features. For more information,
+     * see d.android.com/wear/compose.
+     */
+    ScreenScaffold(
+        scrollState = scrollState,
+        edgeButton = {
+            EdgeButton(
+                onClick = onShowList,
+                buttonSize = EdgeButtonSize.ExtraSmall
+            ) {
+                Text("Button text")
+            }
+        },
+        // The bottom padding value is always ignored when using EdgeButton because this button is
+        // always placed at the end of the screen.
+        // The `ScreenScaffold` parameter `edgeButtonSpacing` can be used to specify the
+        // gap between edgeButton and content.
+        contentPadding = PaddingValues(
+            start = 14.dp,
+            end = 14.dp,
+            top = 14.dp,
+            bottom = 45.dp
+        )
+    ) { contentPadding ->
+        // Use workaround from Horologist for padding or wait until fix lands
+        TransformingLazyColumn(
+            state = scrollState,
+            contentPadding = contentPadding
+        ) {
+            item { Greeting(modifier = Modifier.fillMaxSize()) }
+        }
+    }
+}
+
+@Composable
+fun Greeting(
+    modifier: Modifier = Modifier
+) {
+    ListHeader {
+        Text(
+            modifier = modifier.fillMaxWidth(),
+            textAlign = TextAlign.Center,
+            text = "Hello world"
+        )
+    }
+}
+
+@Composable
+fun TrainDeparturesScreenError(
+    errorText: String,
+    onRetry: () -> Unit = {},
+    scrollState: androidx.wear.compose.foundation.lazy.TransformingLazyColumnState = rememberTransformingLazyColumnState()
+) {
+    val configuration = LocalConfiguration.current
+    val isSmallScreen = configuration.screenWidthDp <= 210
+    val retryButtonText = if (isSmallScreen) "Hent" else "Prøv igjen"
+    ScreenScaffold(
+        scrollState = scrollState,
+        edgeButton = {
+            EdgeButton(
+                onClick = onRetry,
+                buttonSize = EdgeButtonSize.ExtraSmall
+            ) {
+                Text(retryButtonText)
+            }
+        },
+        contentPadding = PaddingValues(
+            start = 14.dp,
+            end = 14.dp,
+            top = 14.dp,
+            bottom = 45.dp
+        )
+    ) { contentPadding ->
+        TransformingLazyColumn(
+            state = scrollState,
+            contentPadding = contentPadding,
+            modifier = Modifier.fillMaxSize(),
+            verticalArrangement = Arrangement.Center,
+            horizontalAlignment = Alignment.CenterHorizontally
+        ) {
+            item {
+                ListHeader {
+                    Text(
+                        modifier = Modifier.fillMaxWidth(),
+                        textAlign = TextAlign.Center,
+                        text = errorText,
+                        style = MaterialTheme.typography.body1,
+                        color = MaterialTheme.colors.error
+                    )
+                }
             }
         }
     }
@@ -61,6 +169,7 @@ fun TrainDeparturesScreen(
     viewModel: TrainViewModel = viewModel()
 ) {
     val uiState by viewModel.uiState.collectAsState()
+    val scrollState = rememberTransformingLazyColumnState()
     when {
         uiState.isLoading -> {
             Box(
@@ -77,34 +186,11 @@ fun TrainDeparturesScreen(
             }
         }
         uiState.error != null -> {
-            Box(
-                modifier = Modifier
-                    .fillMaxSize()
-                    .background(MaterialTheme.colors.background)
-            ) {
-                Column(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .align(Alignment.BottomCenter)
-                        .padding(16.dp),
-                    horizontalAlignment = Alignment.CenterHorizontally
-                ) {
-                    Text(
-                        text = uiState.error ?: "",
-                        style = MaterialTheme.typography.body1,
-                        color = MaterialTheme.colors.error,
-                        textAlign = TextAlign.Center,
-                        modifier = Modifier.padding(bottom = 16.dp)
-                    )
-                    EdgeButton(
-                        onClick = { viewModel.handleEvent(TrainEvent.LoadData) },
-                        modifier = Modifier.fillMaxWidth(),
-                        buttonSize = EdgeButtonSize.Small
-                    ) {
-                        Material3Text("Prøv igjen")
-                    }
-                }
-            }
+            TrainDeparturesScreenError(
+                errorText = uiState.error ?: "",
+                onRetry = { viewModel.handleEvent(TrainEvent.LoadData) },
+                scrollState = scrollState
+            )
         }
         uiState.trainData != null -> {
             val trainData = uiState.trainData
@@ -138,7 +224,7 @@ fun TrainDeparturesScreen(
 
 @Composable
 fun TrainListContent(
-    trainData: no.togavganger.data.TrainData,
+    trainData: TrainData,
     onDepartureClick: (Int) -> Unit
 ) {
     val scrollState = rememberScalingLazyListState()
@@ -321,7 +407,7 @@ fun DepartureDetailsDialog(
                         modifier = Modifier.fillMaxWidth(),
                         buttonSize = EdgeButtonSize.ExtraSmall
                     ) {
-                        Material3Text("Lukk")
+                        Text("Lukk")
                     }
                 }
             }
@@ -329,10 +415,86 @@ fun DepartureDetailsDialog(
     }
 }
 
-@Preview(device = WearDevices.SMALL_ROUND, showSystemUi = true)
+@Preview(device = WearDevices.SMALL_ROUND, showSystemUi = true, name = "Train List - Loading (Small)")
+@Preview(device = WearDevices.LARGE_ROUND, showSystemUi = true, name = "Train List - Loading (Large)")
 @Composable
-fun DefaultPreview() {
+fun TrainListLoadingPreview() {
     TogavgangerTheme {
         TrainDeparturesScreen()
+    }
+}
+
+@Preview(device = WearDevices.SMALL_ROUND, showSystemUi = true, name = "Train List - Success (Small)")
+@Preview(device = WearDevices.LARGE_ROUND, showSystemUi = true, name = "Train List - Success (Large)")
+@Composable
+fun TrainListSuccessPreview() {
+    TogavgangerTheme {
+        val mockTrainData =
+            TrainData(
+                stopName = "Haugenstua stasjon",
+                lineCode = "L1",
+                departures =
+                    listOf(
+                        Departure(
+                            "Spikkestad",
+                            "21:55",
+                            "21:56",
+                            true,
+                            "1"
+                        ),
+                        Departure(
+                            "Oslo S",
+                            "22:10",
+                            "22:10",
+                            false,
+                            "2"
+                        ),
+                        Departure(
+                            "Asker",
+                            "22:25",
+                            "22:25",
+                            false,
+                            "3"
+                        ),
+                        Departure(
+                            "Drammen",
+                            "22:40",
+                            "22:40",
+                            false,
+                            "1"
+                        ),
+                        Departure(
+                            "Oslo S",
+                            "22:55",
+                            "22:55",
+                            false,
+                            "2"
+                        ),
+                        Departure(
+                            "Spikkestad",
+                            "23:10",
+                            "23:12",
+                            true,
+                            "3"
+                        )
+                    )
+            )
+        Box(
+            modifier = Modifier
+                .fillMaxSize()
+                .background(MaterialTheme.colors.background)
+        ) {
+            TimeText()
+            TrainListContent(trainData = mockTrainData, onDepartureClick = {})
+        }
+    }
+}
+
+@Preview(device = WearDevices.SMALL_ROUND, showSystemUi = true, name = "Train List - Error (Small)")
+@Preview(device = WearDevices.LARGE_ROUND, showSystemUi = true, name = "Train List - Error (Large)")
+@Composable
+fun TrainListErrorPreview() {
+    TogavgangerTheme {
+        TrainDeparturesScreenError(errorText = "Kunne ikke hente toginformasjon")
     }
 }

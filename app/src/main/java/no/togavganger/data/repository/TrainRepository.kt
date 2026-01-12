@@ -72,7 +72,7 @@ class TrainRepository {
                         topLevelLineCode = lineCode
                     }
                     val quay = call.optJSONObject("quay")
-                    val platformCode = quay?.optString("publicCode", null)
+                    val platformCode = quay?.optString("publicCode")
                     val aimedTimeRaw = call.getString("aimedDepartureTime")
                     val expectedTimeRaw = call.optString("expectedDepartureTime", aimedTimeRaw)
                     val aimedDateTime = ZonedDateTime.parse(aimedTimeRaw)
