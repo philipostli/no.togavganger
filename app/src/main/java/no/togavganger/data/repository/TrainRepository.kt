@@ -12,7 +12,7 @@ import java.time.format.DateTimeFormatter
 import java.time.temporal.ChronoUnit
 
 class TrainRepository {
-    suspend fun fetchTrainData(): TrainData {
+    suspend fun fetchTrainData(stopPlaceId: String): TrainData {
         return withContext(Dispatchers.IO) {
             try {
                 val url = URL("https://api.entur.io/journey-planner/v3/graphql")
@@ -23,7 +23,7 @@ class TrainRepository {
                 connection.doOutput = true
                 val query = """
                 {
-                  stopPlace(id: "NSR:StopPlace:59653") {
+                  stopPlace(id: "$stopPlaceId") {
                     name
                     estimatedCalls(
                         numberOfDepartures: 10 

@@ -13,32 +13,46 @@ data class TrainUiState(
         val trainData: TrainData? = null,
         val isLoading: Boolean = false,
         val error: String? = null,
-        val selectedDepartureIndex: Int? = null
+        val selectedDepartureIndex: Int? = null,
+        val showSettings: Boolean = false,
+        val selectedStation: String? = null
 )
 
 sealed class TrainEvent {
     object LoadData : TrainEvent()
     data class SelectDeparture(val index: Int) : TrainEvent()
     object DismissDetails : TrainEvent()
+    object ShowSettings : TrainEvent()
+    object DismissSettings : TrainEvent()
+    data class SelectStation(val station: String) : TrainEvent()
 }
 
 class TrainViewModel(private val repository: TrainRepository = TrainRepository()) : ViewModel() {
     private val _uiState = MutableStateFlow(TrainUiState())
     val uiState: StateFlow<TrainUiState> = _uiState.asStateFlow()
-    init {
-        handleEvent(TrainEvent.LoadData)
-    }
     fun handleEvent(event: TrainEvent) {
         when (event) {
             is TrainEvent.LoadData -> loadTrainData()
             is TrainEvent.SelectDeparture -> selectDeparture(event.index)
             is TrainEvent.DismissDetails -> dismissDetails()
+            is TrainEvent.ShowSettings -> showSettings()
+            is TrainEvent.DismissSettings -> dismissSettings()
+            is TrainEvent.SelectStation -> selectStation(event.station)
         }
     }
     private fun loadTrainData() {
         viewModelScope.launch {
+            val selectedStation = _uiState.value.selectedStation
+            if (selectedStation == null) {
+                return@launch
+            }
+            val stopPlaceId = when (selectedStation) {
+                "Haugensua stasjon" -> "NSR:StopPlace:59653"
+                "Grorud stasjon" -> "NSR:StopPlace:59620"
+                else -> return@launch
+            }
             _uiState.value = _uiState.value.copy(isLoading = true, error = null)
-            val data = repository.fetchTrainData()
+            val data = repository.fetchTrainData(stopPlaceId)
             _uiState.value =
                     _uiState.value.copy(
                             trainData = data,
@@ -55,5 +69,15 @@ class TrainViewModel(private val repository: TrainRepository = TrainRepository()
     }
     private fun dismissDetails() {
         _uiState.value = _uiState.value.copy(selectedDepartureIndex = null)
+    }
+    private fun showSettings() {
+        _uiState.value = _uiState.value.copy(showSettings = true)
+    }
+    private fun dismissSettings() {
+        _uiState.value = _uiState.value.copy(showSettings = false)
+    }
+    private fun selectStation(station: String) {
+        _uiState.value = _uiState.value.copy(selectedStation = station, showSettings = false)
+        loadTrainData()
     }
 }

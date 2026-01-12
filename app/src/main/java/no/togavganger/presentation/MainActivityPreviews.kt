@@ -74,7 +74,7 @@ fun TrainListSuccessPreview() {
                 .background(MaterialTheme.colors.background)
         ) {
             TimeText()
-            TrainListContent(trainData = mockTrainData, onDepartureClick = {})
+            TrainListContent(trainData = mockTrainData, onDepartureClick = {}, onSettingsClick = {})
         }
     }
 }

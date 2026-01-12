@@ -41,7 +41,7 @@ class MainTileService : SuspendingTileService() {
         requestParams: RequestBuilders.TileRequest
     ): TileBuilders.Tile {
         val repository = TrainRepository()
-        val trainData = repository.fetchTrainData()
+        val trainData = repository.fetchTrainData("NSR:StopPlace:59653")
         return TileBuilders.Tile.Builder()
             .setResourcesVersion(RESOURCES_VERSION)
             .setFreshnessIntervalMillis(60 * 1000L)

@@ -55,7 +55,7 @@ class MainActivity : ComponentActivity() {
         setContent {
             TogavgangerTheme {
                 TrainDeparturesScreen()
-                // TestScreen("Android", {})
+                // TestScreen("Android", { })
             }
         }
     }
@@ -169,50 +169,63 @@ fun TrainDeparturesScreen(
 ) {
     val uiState by viewModel.uiState.collectAsState()
     val scrollState = rememberTransformingLazyColumnState()
-    when {
-        uiState.isLoading -> {
-            Box(
-                modifier = Modifier
-                    .fillMaxSize()
-                    .background(MaterialTheme.colors.background),
-                contentAlignment = Alignment.Center
-            ) {
-                Text(
-                    text = "Laster...",
-                    style = MaterialTheme.typography.body1,
-                    color = MaterialTheme.colors.onBackground
-                )
+    if (uiState.showSettings || uiState.selectedStation == null) {
+        SettingsScreen(
+            selectedStation = uiState.selectedStation,
+            onStationSelected = { station -> viewModel.handleEvent(TrainEvent.SelectStation(station)) },
+            onDismiss = { 
+                if (uiState.selectedStation != null) {
+                    viewModel.handleEvent(TrainEvent.DismissSettings)
+                }
             }
-        }
-        uiState.error != null -> {
-            TrainDeparturesScreenError(
-                errorText = uiState.error ?: "",
-                onRetry = { viewModel.handleEvent(TrainEvent.LoadData) },
-                scrollState = scrollState
-            )
-        }
-        uiState.trainData != null -> {
-            val trainData = uiState.trainData
-            if (trainData != null) {
+        )
+    } else {
+        when {
+            uiState.isLoading -> {
                 Box(
                     modifier = Modifier
                         .fillMaxSize()
-                        .background(MaterialTheme.colors.background)
+                        .background(MaterialTheme.colors.background),
+                    contentAlignment = Alignment.Center
                 ) {
-                    TimeText()
-                    TrainListContent(
-                        trainData = trainData,
-                        onDepartureClick = { index -> viewModel.handleEvent(TrainEvent.SelectDeparture(index)) }
+                    Text(
+                        text = "Laster...",
+                        style = MaterialTheme.typography.body1,
+                        color = MaterialTheme.colors.onBackground
                     )
-                    uiState.selectedDepartureIndex?.let { index ->
-                        val departure = trainData.departures.getOrNull(index)
-                        if (departure != null) {
-                            DepartureDetailsDialog(
-                                departure = departure,
-                                stopName = trainData.stopName,
-                                lineCode = trainData.lineCode,
-                                onDismiss = { viewModel.handleEvent(TrainEvent.DismissDetails) }
-                            )
+                }
+            }
+            uiState.error != null -> {
+                TrainDeparturesScreenError(
+                    errorText = uiState.error ?: "",
+                    onRetry = { viewModel.handleEvent(TrainEvent.LoadData) },
+                    scrollState = scrollState
+                )
+            }
+            uiState.trainData != null -> {
+                val trainData = uiState.trainData
+                if (trainData != null) {
+                    Box(
+                        modifier = Modifier
+                            .fillMaxSize()
+                            .background(MaterialTheme.colors.background)
+                    ) {
+                        TimeText()
+                        TrainListContent(
+                            trainData = trainData,
+                            onDepartureClick = { index -> viewModel.handleEvent(TrainEvent.SelectDeparture(index)) },
+                            onSettingsClick = { viewModel.handleEvent(TrainEvent.ShowSettings) }
+                        )
+                        uiState.selectedDepartureIndex?.let { index ->
+                            val departure = trainData.departures.getOrNull(index)
+                            if (departure != null) {
+                                DepartureDetailsDialog(
+                                    departure = departure,
+                                    stopName = trainData.stopName,
+                                    lineCode = trainData.lineCode,
+                                    onDismiss = { viewModel.handleEvent(TrainEvent.DismissDetails) }
+                                )
+                            }
                         }
                     }
                 }
@@ -224,16 +237,25 @@ fun TrainDeparturesScreen(
 @Composable
 fun TrainListContent(
     trainData: TrainData,
-    onDepartureClick: (Int) -> Unit
+    onDepartureClick: (Int) -> Unit,
+    onSettingsClick: () -> Unit
 ) {
     val scrollState = rememberTransformingLazyColumnState()
     ScreenScaffold(
         scrollState = scrollState,
+        edgeButton = {
+            EdgeButton(
+                onClick = onSettingsClick,
+                buttonSize = EdgeButtonSize.ExtraSmall
+            ) {
+                Text("Stasjon")
+            }
+        },
         contentPadding = PaddingValues(
             start = 14.dp,
             end = 14.dp,
             top = 14.dp,
-            bottom = 4.dp
+            bottom = 45.dp
         )
     ) { contentPadding ->
         TransformingLazyColumn(
@@ -454,6 +476,93 @@ fun DepartureDetailsDialog(
                             modifier = Modifier.fillMaxWidth(),
                             textAlign = TextAlign.Center
                         )
+                    }
+                }
+            }
+        }
+    }
+}
+
+@Composable
+fun SettingsScreen(
+    selectedStation: String?,
+    onStationSelected: (String) -> Unit,
+    onDismiss: () -> Unit
+) {
+    val scrollState = rememberTransformingLazyColumnState()
+    val stations = listOf("Haugensua stasjon", "Grorud stasjon")
+    ScreenScaffold(
+        scrollState = scrollState,
+        edgeButton = {
+            if (selectedStation != null) {
+                EdgeButton(
+                    onClick = onDismiss,
+                    buttonSize = EdgeButtonSize.ExtraSmall
+                ) {
+                    Text("Tilbake")
+                }
+            }
+        },
+        contentPadding = PaddingValues(
+            start = 14.dp,
+            end = 14.dp,
+            top = 14.dp,
+            bottom = if (selectedStation != null) 45.dp else 4.dp
+        )
+    ) { contentPadding ->
+        TransformingLazyColumn(
+            state = scrollState,
+            contentPadding = contentPadding,
+            modifier = Modifier.fillMaxSize()
+        ) {
+            item {
+                ListHeader {
+                    Text(
+                        text = "Velg stasjon",
+                        style = MaterialTheme.typography.title2,
+                        color = MaterialTheme.colors.primary,
+                        modifier = Modifier.fillMaxWidth(),
+                        textAlign = TextAlign.Center
+                    )
+                }
+            }
+            item {
+                Spacer(modifier = Modifier.height(8.dp))
+            }
+            stations.forEach { station ->
+                item {
+                    Box(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(horizontal = 4.dp)
+                    ) {
+                        Button(
+                            onClick = { onStationSelected(station) },
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .height(38.dp),
+                            colors = if (station == selectedStation) {
+                                ButtonDefaults.primaryButtonColors(
+                                    backgroundColor = MaterialTheme.colors.primary,
+                                    contentColor = MaterialTheme.colors.onPrimary
+                                )
+                            } else {
+                                ButtonDefaults.secondaryButtonColors(
+                                    backgroundColor = getSurfaceContainerColor(),
+                                    contentColor = getOnSurfaceColor()
+                                )
+                            }
+                        ) {
+                            Text(
+                                text = station,
+                                style = MaterialTheme.typography.title3,
+                                color = if (station == selectedStation) {
+                                    MaterialTheme.colors.onPrimary
+                                } else {
+                                    getOnSurfaceColor()
+                                }
+                            )
+                        }
                     }
                 }
             }
