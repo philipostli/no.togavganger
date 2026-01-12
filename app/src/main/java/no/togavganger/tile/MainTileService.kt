@@ -1,6 +1,7 @@
 package no.togavganger.tile
 
 import android.content.Context
+import android.util.Log
 import androidx.wear.protolayout.DeviceParametersBuilders
 import androidx.wear.protolayout.DimensionBuilders.dp
 import androidx.wear.protolayout.DimensionBuilders.expand
@@ -73,6 +74,11 @@ fun tileLayout(
     deviceConfiguration = deviceConfiguration,
     allowDynamicTheme = false
 ) {
+    // Log the actual color values used in tile - always log these
+    // Log.d("TileColors", "tertiaryContainer: ${colorScheme.tertiaryContainer}")
+    // Log.d("TileColors", "onTertiaryContainer: ${colorScheme.onTertiaryContainer}")
+    // Log.d("TileColors", "surfaceContainer: ${colorScheme.surfaceContainer}")
+    // Log.d("TileColors", "onSurface: ${colorScheme.onSurface}")
     primaryLayout(
         mainSlot = {
             LayoutElementBuilders.Column.Builder()

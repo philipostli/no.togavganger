@@ -1,18 +1,13 @@
 package no.togavganger.presentation.viewmodel
 
-import androidx.compose.runtime.Composable
-import androidx.compose.ui.tooling.preview.Preview
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
-import androidx.wear.tooling.preview.devices.WearDevices
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.launch
 import no.togavganger.data.TrainData
 import no.togavganger.data.repository.TrainRepository
-import no.togavganger.presentation.DepartureDetailsDialog
-import no.togavganger.presentation.theme.TogavgangerTheme
 
 data class TrainUiState(
         val trainData: TrainData? = null,
@@ -60,35 +55,5 @@ class TrainViewModel(private val repository: TrainRepository = TrainRepository()
     }
     private fun dismissDetails() {
         _uiState.value = _uiState.value.copy(selectedDepartureIndex = null)
-    }
-}
-
-@Preview(
-        device = WearDevices.SMALL_ROUND,
-        showSystemUi = true,
-        name = "Departure Details Dialog (Small)"
-)
-@Preview(
-        device = WearDevices.LARGE_ROUND,
-        showSystemUi = true,
-        name = "Departure Details Dialog (Large)"
-)
-@Composable
-fun DepartureDetailsDialogPreview() {
-    TogavgangerTheme {
-        val mockDeparture =
-                no.togavganger.data.Departure(
-                        destination = "Oslo S",
-                        aimedTime = "22:10",
-                        expectedTime = "22:12",
-                        isDelayed = true,
-                        platformCode = "2"
-                )
-        DepartureDetailsDialog(
-                departure = mockDeparture,
-                stopName = "Haugenstua stasjon",
-                lineCode = "L1",
-                onDismiss = {}
-        )
     }
 }

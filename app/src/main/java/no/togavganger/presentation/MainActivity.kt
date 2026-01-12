@@ -29,7 +29,6 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.text.style.TextAlign
-import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.viewmodel.compose.viewModel
 import androidx.wear.compose.material.Button
@@ -41,10 +40,13 @@ import androidx.wear.compose.material3.EdgeButton
 import androidx.wear.compose.material3.EdgeButtonSize
 import androidx.wear.compose.material3.Text
 import androidx.wear.compose.material3.TimeText
-import androidx.wear.tooling.preview.devices.WearDevices
 import no.togavganger.data.Departure
 import no.togavganger.data.TrainData
 import no.togavganger.presentation.theme.TogavgangerTheme
+import no.togavganger.presentation.theme.getTertiaryContainerColor
+import no.togavganger.presentation.theme.getOnTertiaryContainerColor
+import no.togavganger.presentation.theme.getSurfaceContainerColor
+import no.togavganger.presentation.theme.getOnSurfaceColor
 import no.togavganger.presentation.viewmodel.TrainEvent
 import no.togavganger.presentation.viewmodel.TrainViewModel
 
@@ -233,7 +235,7 @@ fun TrainListContent(
         modifier = Modifier
             .fillMaxSize()
             .padding(horizontal = 8.dp),
-        contentPadding = PaddingValues(top = 14.dp, bottom = 45.dp),
+        contentPadding = PaddingValues(top = 20.dp, bottom = 50.dp),
         autoCentering = null
     ) {
         item {
@@ -255,7 +257,7 @@ fun TrainListContent(
             )
         }
         item {
-            Spacer(modifier = Modifier.height(8.dp))
+            Spacer(modifier = Modifier.height(6.dp))
         }
         val maxDepartures = 6
         items(trainData.departures.take(maxDepartures).size) { index ->
@@ -297,13 +299,13 @@ fun DepartureCard(
             .height(38.dp),
         colors = if (departure.isDelayed) {
             ButtonDefaults.secondaryButtonColors(
-                backgroundColor = MaterialTheme.colors.error.copy(alpha = 0.3f),
-                contentColor = MaterialTheme.colors.error
+                backgroundColor = getTertiaryContainerColor(),
+                contentColor = getOnTertiaryContainerColor()
             )
         } else {
             ButtonDefaults.secondaryButtonColors(
-                backgroundColor = MaterialTheme.colors.surface.copy(alpha = 0.3f),
-                contentColor = MaterialTheme.colors.onSurface
+                backgroundColor = getSurfaceContainerColor(),
+                contentColor = getOnSurfaceColor()
             )
         }
     ) {
@@ -318,9 +320,9 @@ fun DepartureCard(
                 text = departure.destination,
                 style = MaterialTheme.typography.title3,
                 color = if (departure.isDelayed) {
-                    MaterialTheme.colors.error
+                    getOnTertiaryContainerColor()
                 } else {
-                    MaterialTheme.colors.onSurface
+                    getOnSurfaceColor()
                 }
             )
             Spacer(modifier = Modifier.width(8.dp))
@@ -328,13 +330,13 @@ fun DepartureCard(
                 Text(
                     text = departure.expectedTime,
                     style = MaterialTheme.typography.body1,
-                    color = MaterialTheme.colors.error
+                    color = getOnTertiaryContainerColor()
                 )
             } else {
                 Text(
                     text = departure.aimedTime,
                     style = MaterialTheme.typography.body1,
-                    color = MaterialTheme.colors.onSurfaceVariant
+                    color = getOnSurfaceColor()
                 )
             }
         }
@@ -398,7 +400,7 @@ fun DepartureDetailsDialog(
                         Text(
                             text = "Forventet: ${departure.expectedTime}",
                             style = MaterialTheme.typography.body2,
-                            color = MaterialTheme.colors.error
+                            color = getOnTertiaryContainerColor()
                         )
                     }
                     Spacer(modifier = Modifier.height(16.dp))
@@ -412,89 +414,5 @@ fun DepartureDetailsDialog(
                 }
             }
         )
-    }
-}
-
-@Preview(device = WearDevices.SMALL_ROUND, showSystemUi = true, name = "Train List - Loading (Small)")
-@Preview(device = WearDevices.LARGE_ROUND, showSystemUi = true, name = "Train List - Loading (Large)")
-@Composable
-fun TrainListLoadingPreview() {
-    TogavgangerTheme {
-        TrainDeparturesScreen()
-    }
-}
-
-@Preview(device = WearDevices.SMALL_ROUND, showSystemUi = true, name = "Train List - Success (Small)")
-@Preview(device = WearDevices.LARGE_ROUND, showSystemUi = true, name = "Train List - Success (Large)")
-@Composable
-fun TrainListSuccessPreview() {
-    TogavgangerTheme {
-        val mockTrainData =
-            TrainData(
-                stopName = "Haugenstua stasjon",
-                lineCode = "L1",
-                departures =
-                    listOf(
-                        Departure(
-                            "Spikkestad",
-                            "21:55",
-                            "21:56",
-                            true,
-                            "1"
-                        ),
-                        Departure(
-                            "Oslo S",
-                            "22:10",
-                            "22:10",
-                            false,
-                            "2"
-                        ),
-                        Departure(
-                            "Asker",
-                            "22:25",
-                            "22:25",
-                            false,
-                            "3"
-                        ),
-                        Departure(
-                            "Drammen",
-                            "22:40",
-                            "22:40",
-                            false,
-                            "1"
-                        ),
-                        Departure(
-                            "Oslo S",
-                            "22:55",
-                            "22:55",
-                            false,
-                            "2"
-                        ),
-                        Departure(
-                            "Spikkestad",
-                            "23:10",
-                            "23:12",
-                            true,
-                            "3"
-                        )
-                    )
-            )
-        Box(
-            modifier = Modifier
-                .fillMaxSize()
-                .background(MaterialTheme.colors.background)
-        ) {
-            TimeText()
-            TrainListContent(trainData = mockTrainData, onDepartureClick = {})
-        }
-    }
-}
-
-@Preview(device = WearDevices.SMALL_ROUND, showSystemUi = true, name = "Train List - Error (Small)")
-@Preview(device = WearDevices.LARGE_ROUND, showSystemUi = true, name = "Train List - Error (Large)")
-@Composable
-fun TrainListErrorPreview() {
-    TogavgangerTheme {
-        TrainDeparturesScreenError(errorText = "Kunne ikke hente toginformasjon")
     }
 }
