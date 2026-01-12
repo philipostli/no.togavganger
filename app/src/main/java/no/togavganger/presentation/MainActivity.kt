@@ -16,8 +16,6 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.layout.PaddingValues
-import androidx.wear.compose.foundation.lazy.ScalingLazyColumn
-import androidx.wear.compose.foundation.lazy.rememberScalingLazyListState
 import androidx.wear.compose.material3.ListHeader
 import androidx.wear.compose.foundation.lazy.TransformingLazyColumn
 import androidx.wear.compose.foundation.lazy.rememberTransformingLazyColumnState
@@ -34,7 +32,6 @@ import androidx.lifecycle.viewmodel.compose.viewModel
 import androidx.wear.compose.material.Button
 import androidx.wear.compose.material.ButtonDefaults
 import androidx.wear.compose.material.MaterialTheme
-import androidx.wear.compose.material.dialog.Alert
 import androidx.wear.compose.material.dialog.Dialog
 import androidx.wear.compose.material3.EdgeButton
 import androidx.wear.compose.material3.EdgeButtonSize
@@ -229,59 +226,70 @@ fun TrainListContent(
     trainData: TrainData,
     onDepartureClick: (Int) -> Unit
 ) {
-    val scrollState = rememberScalingLazyListState()
-    ScalingLazyColumn(
-        state = scrollState,
-        modifier = Modifier
-            .fillMaxSize()
-            .padding(horizontal = 8.dp),
-        contentPadding = PaddingValues(top = 20.dp, bottom = 50.dp),
-        autoCentering = null
-    ) {
-        item {
-            Text(
-                text = trainData.lineCode,
-                style = MaterialTheme.typography.title2,
-                color = MaterialTheme.colors.primary,
-                modifier = Modifier.fillMaxWidth(),
-                textAlign = TextAlign.Center
-            )
-        }
-        item {
-            Text(
-                text = trainData.stopName,
-                style = MaterialTheme.typography.body2,
-                color = MaterialTheme.colors.secondary,
-                modifier = Modifier.fillMaxWidth(),
-                textAlign = TextAlign.Center
-            )
-        }
-        item {
-            Spacer(modifier = Modifier.height(6.dp))
-        }
-        val maxDepartures = 6
-        items(trainData.departures.take(maxDepartures).size) { index ->
-            Box(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(horizontal = 4.dp)
-            ) {
-                DepartureCard(
-                    departure = trainData.departures[index],
-                    onClick = { onDepartureClick(index) }
-                )
+    val scrollState = rememberTransformingLazyColumnState()
+    ScreenScaffold(
+        scrollState = scrollState,
+        contentPadding = PaddingValues(
+            start = 14.dp,
+            end = 14.dp,
+            top = 14.dp,
+            bottom = 4.dp
+        )
+    ) { contentPadding ->
+        TransformingLazyColumn(
+            state = scrollState,
+            contentPadding = contentPadding,
+            modifier = Modifier.fillMaxSize()
+        ) {
+            item {
+                ListHeader {
+                    Text(
+                        text = trainData.lineCode,
+                        style = MaterialTheme.typography.title2,
+                        color = MaterialTheme.colors.primary,
+                        modifier = Modifier.fillMaxWidth(),
+                        textAlign = TextAlign.Center
+                    )
+                }
             }
-            Spacer(modifier = Modifier.height(2.dp))
-        }
-        if (trainData.departures.isEmpty()) {
             item {
                 Text(
-                    text = "Ingen avganger funnet",
-                    style = MaterialTheme.typography.body1,
-                    color = MaterialTheme.colors.onBackground,
+                    text = trainData.stopName,
+                    style = MaterialTheme.typography.body2,
+                    color = MaterialTheme.colors.secondary,
                     modifier = Modifier.fillMaxWidth(),
                     textAlign = TextAlign.Center
                 )
+            }
+            item {
+                Spacer(modifier = Modifier.height(2.dp))
+            }
+            val maxDepartures = 6
+            trainData.departures.take(maxDepartures).forEachIndexed { index, departure ->
+                item {
+                    Box(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(horizontal = 4.dp)
+                    ) {
+                        DepartureCard(
+                            departure = departure,
+                            onClick = { onDepartureClick(index) }
+                        )
+                    }
+                }
+            
+            }
+            if (trainData.departures.isEmpty()) {
+                item {
+                    Text(
+                        text = "Ingen avganger funnet",
+                        style = MaterialTheme.typography.body1,
+                        color = MaterialTheme.colors.onBackground,
+                        modifier = Modifier.fillMaxWidth(),
+                        textAlign = TextAlign.Center
+                    )
+                }
             }
         }
     }
@@ -350,69 +358,105 @@ fun DepartureDetailsDialog(
     lineCode: String,
     onDismiss: () -> Unit
 ) {
-    // The Dialog composable remains the same
     Dialog(
         showDialog = true,
         onDismissRequest = onDismiss
     ) {
-        // Here is the corrected Alert composable
-        Alert(
-            title = {
-                Text(
-                    text = departure.destination,
-                    style = MaterialTheme.typography.title3,
-                    textAlign = TextAlign.Center
-                )
-            },
-            negativeButton = { },
-            positiveButton = { },
-            content = {
-                Column(
-                    modifier = Modifier.fillMaxWidth(),
-                    horizontalAlignment = Alignment.CenterHorizontally
+        val scrollState = rememberTransformingLazyColumnState()
+        ScreenScaffold(
+            scrollState = scrollState,
+            edgeButton = {
+                EdgeButton(
+                    onClick = onDismiss,
+                    buttonSize = EdgeButtonSize.ExtraSmall
                 ) {
+                    Text("Lukk")
+                }
+            },
+            contentPadding = PaddingValues(
+                start = 14.dp,
+                end = 14.dp,
+                top = 14.dp,
+                bottom = 45.dp
+            )
+        ) { contentPadding ->
+            TransformingLazyColumn(
+                state = scrollState,
+                contentPadding = contentPadding,
+                modifier = Modifier.fillMaxSize()
+            ) {
+                item {
+                    ListHeader {
+                        Text(
+                            text = departure.destination,
+                            style = MaterialTheme.typography.title3,
+                            textAlign = TextAlign.Center,
+                            modifier = Modifier.fillMaxWidth()
+                        )
+                    }
+                }
+                item {
+                    Spacer(modifier = Modifier.height(8.dp))
+                }
+                item {
                     Text(
                         text = stopName,
                         style = MaterialTheme.typography.body2,
-                        color = MaterialTheme.colors.onSurfaceVariant
+                        color = MaterialTheme.colors.onSurfaceVariant,
+                        modifier = Modifier.fillMaxWidth(),
+                        textAlign = TextAlign.Center
                     )
+                }
+                item {
                     Spacer(modifier = Modifier.height(4.dp))
+                }
+                item {
                     Text(
                         text = "Linje: $lineCode",
                         style = MaterialTheme.typography.body1,
-                        color = MaterialTheme.colors.onSurface
+                        color = MaterialTheme.colors.onSurface,
+                        modifier = Modifier.fillMaxWidth(),
+                        textAlign = TextAlign.Center
                     )
-                    if (departure.platformCode != null) {
+                }
+                if (departure.platformCode != null) {
+                    item {
                         Spacer(modifier = Modifier.height(4.dp))
+                    }
+                    item {
                         Text(
                             text = "Plattform: ${departure.platformCode}",
                             style = MaterialTheme.typography.body1,
-                            color = MaterialTheme.colors.onSurface
+                            color = MaterialTheme.colors.onSurface,
+                            modifier = Modifier.fillMaxWidth(),
+                            textAlign = TextAlign.Center
                         )
                     }
+                }
+                item {
                     Spacer(modifier = Modifier.height(8.dp))
+                }
+                item {
                     Text(
                         text = "Planlagt: ${departure.aimedTime}",
                         style = MaterialTheme.typography.body2,
-                        color = MaterialTheme.colors.onSurfaceVariant
+                        color = MaterialTheme.colors.onSurfaceVariant,
+                        modifier = Modifier.fillMaxWidth(),
+                        textAlign = TextAlign.Center
                     )
-                    if (departure.isDelayed) {
+                }
+                if (departure.isDelayed) {
+                    item {
                         Text(
                             text = "Forventet: ${departure.expectedTime}",
                             style = MaterialTheme.typography.body2,
-                            color = getOnTertiaryContainerColor()
+                            color = getOnTertiaryContainerColor(),
+                            modifier = Modifier.fillMaxWidth(),
+                            textAlign = TextAlign.Center
                         )
-                    }
-                    Spacer(modifier = Modifier.height(16.dp))
-                    EdgeButton(
-                        onClick = onDismiss,
-                        modifier = Modifier.fillMaxWidth(),
-                        buttonSize = EdgeButtonSize.ExtraSmall
-                    ) {
-                        Text("Lukk")
                     }
                 }
             }
-        )
+        }
     }
 }
