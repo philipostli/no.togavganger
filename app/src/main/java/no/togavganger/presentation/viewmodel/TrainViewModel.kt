@@ -1,12 +1,14 @@
 package no.togavganger.presentation.viewmodel
 
-import androidx.lifecycle.ViewModel
+import android.app.Application
+import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.launch
 import no.togavganger.data.TrainData
+import no.togavganger.data.preferences.StationPreferences
 import no.togavganger.data.repository.TrainRepository
 
 data class TrainUiState(
@@ -27,9 +29,17 @@ sealed class TrainEvent {
     data class SelectStation(val station: String) : TrainEvent()
 }
 
-class TrainViewModel(private val repository: TrainRepository = TrainRepository()) : ViewModel() {
-    private val _uiState = MutableStateFlow(TrainUiState())
+class TrainViewModel(application: Application) : AndroidViewModel(application) {
+    private val repository = TrainRepository()
+    private val stationPreferences = StationPreferences(application)
+    private val _uiState = MutableStateFlow(TrainUiState(selectedStation = stationPreferences.getSelectedStation()))
     val uiState: StateFlow<TrainUiState> = _uiState.asStateFlow()
+    init {
+        val savedStation = _uiState.value.selectedStation
+        if (savedStation != null) {
+            loadTrainData()
+        }
+    }
     fun handleEvent(event: TrainEvent) {
         when (event) {
             is TrainEvent.LoadData -> loadTrainData()
@@ -77,6 +87,7 @@ class TrainViewModel(private val repository: TrainRepository = TrainRepository()
         _uiState.value = _uiState.value.copy(showSettings = false)
     }
     private fun selectStation(station: String) {
+        stationPreferences.setSelectedStation(station)
         _uiState.value = _uiState.value.copy(selectedStation = station, showSettings = false)
         loadTrainData()
     }

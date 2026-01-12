@@ -4,6 +4,7 @@ import android.os.Bundle
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.core.splashscreen.SplashScreen.Companion.installSplashScreen
+import androidx.wear.tiles.TileService
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -40,6 +41,7 @@ import androidx.wear.compose.material3.TimeText
 import no.togavganger.data.Departure
 import no.togavganger.data.TrainData
 import no.togavganger.presentation.theme.TogavgangerTheme
+import no.togavganger.tile.MainTileService
 import no.togavganger.presentation.theme.getTertiaryContainerColor
 import no.togavganger.presentation.theme.getOnTertiaryContainerColor
 import no.togavganger.presentation.theme.getSurfaceContainerColor
@@ -58,6 +60,10 @@ class MainActivity : ComponentActivity() {
                 // TestScreen("Android", { })
             }
         }
+    }
+    override fun onPause() {
+        super.onPause()
+        TileService.getUpdater(this).requestUpdate(MainTileService::class.java)
     }
 }
 

@@ -1,7 +1,7 @@
 package no.togavganger.tile
 
 import android.content.Context
-import android.util.Log
+// import android.util.Log
 import androidx.wear.protolayout.DeviceParametersBuilders
 import androidx.wear.protolayout.DimensionBuilders.dp
 import androidx.wear.protolayout.DimensionBuilders.expand
@@ -23,6 +23,7 @@ import androidx.wear.protolayout.material3.text
 import androidx.wear.protolayout.material3.Typography
 import androidx.wear.protolayout.types.layoutString
 import no.togavganger.data.TrainData
+import no.togavganger.data.preferences.StationPreferences
 import no.togavganger.data.repository.TrainRepository
 
 private const val RESOURCES_VERSION = "0"
@@ -41,7 +42,14 @@ class MainTileService : SuspendingTileService() {
         requestParams: RequestBuilders.TileRequest
     ): TileBuilders.Tile {
         val repository = TrainRepository()
-        val trainData = repository.fetchTrainData("NSR:StopPlace:59653")
+        val stationPreferences = StationPreferences(this)
+        val selectedStation = stationPreferences.getSelectedStation()
+        val stopPlaceId = when (selectedStation) {
+            "Haugensua stasjon" -> "NSR:StopPlace:59653"
+            "Grorud stasjon" -> "NSR:StopPlace:59620"
+            else -> "NSR:StopPlace:59653"
+        }
+        val trainData = repository.fetchTrainData(stopPlaceId)
         return TileBuilders.Tile.Builder()
             .setResourcesVersion(RESOURCES_VERSION)
             .setFreshnessIntervalMillis(60 * 1000L)
