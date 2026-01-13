@@ -10,6 +10,7 @@ import androidx.wear.compose.material.MaterialTheme
 import androidx.wear.compose.material3.TimeText
 import androidx.wear.tooling.preview.devices.WearDevices
 import no.togavganger.data.Departure
+import no.togavganger.data.StationSearchResult
 import no.togavganger.data.TrainData
 import no.togavganger.presentation.theme.TogavgangerTheme
 
@@ -126,11 +127,78 @@ fun DefaultPreview() {
     }
 }
 
-@Preview(device = WearDevices.SMALL_ROUND, showSystemUi = true, name = "Train List - Loading (Small)")
-@Preview(device = WearDevices.LARGE_ROUND, showSystemUi = true, name = "Train List - Loading (Large)")
+//@Preview(device = WearDevices.SMALL_ROUND, showSystemUi = true, name = "Train List - Loading (Small)")
+//@Preview(device = WearDevices.LARGE_ROUND, showSystemUi = true, name = "Train List - Loading (Large)")
 @Composable
 fun TrainListLoadingPreview() {
     TogavgangerTheme {
         TrainDeparturesScreen()
+    }
+}
+
+@Preview(device = WearDevices.SMALL_ROUND, showSystemUi = true, name = "Settings Screen - No Selection (Small)")
+@Preview(device = WearDevices.LARGE_ROUND, showSystemUi = true, name = "Settings Screen - No Selection (Large)")
+@Composable
+fun SettingsScreenNoSelectionPreview() {
+    TogavgangerTheme {
+        SettingsScreen(
+            selectedStation = null,
+            isSearching = false,
+            searchQuery = "",
+            searchResults = emptyList(),
+            isSearchLoading = false,
+            onStationSelected = {},
+            onToggleSearch = {},
+            onSearchQueryChanged = {},
+            onSearchResultSelected = {},
+            onDismiss = {},
+            activity = null
+        )
+    }
+}
+
+@Preview(device = WearDevices.SMALL_ROUND, showSystemUi = true, name = "Settings Screen - With Selection (Small)")
+@Preview(device = WearDevices.LARGE_ROUND, showSystemUi = true, name = "Settings Screen - With Selection (Large)")
+@Composable
+fun SettingsScreenWithSelectionPreview() {
+    TogavgangerTheme {
+        SettingsScreen(
+            selectedStation = "Haugensua stasjon",
+            isSearching = false,
+            searchQuery = "",
+            searchResults = emptyList(),
+            isSearchLoading = false,
+            onStationSelected = {},
+            onToggleSearch = {},
+            onSearchQueryChanged = {},
+            onSearchResultSelected = {},
+            onDismiss = {},
+            activity = null
+        )
+    }
+}
+
+@Preview(device = WearDevices.SMALL_ROUND, showSystemUi = true, name = "Settings Screen - Search Results (Small)")
+@Preview(device = WearDevices.LARGE_ROUND, showSystemUi = true, name = "Settings Screen - Search Results (Large)")
+@Composable
+fun SettingsScreenSearchResultsPreview() {
+    TogavgangerTheme {
+        SettingsScreen(
+            selectedStation = null,
+            isSearching = true,
+            searchQuery = "Haugen",
+            searchResults = listOf(
+                StationSearchResult("NSR:StopPlace:59653", "Haugenstua stasjon"),
+                StationSearchResult("NSR:StopPlace:59620", "Grorud stasjon"),
+                StationSearchResult("NSR:StopPlace:12345", "Haugenstua torg")
+            ),
+            isSearchLoading = false,
+            onStationSelected = {},
+            onToggleSearch = {},
+            onSearchQueryChanged = {},
+            onSearchResultSelected = {},
+            onDismiss = {},
+            activity = null
+        )
     }
 }

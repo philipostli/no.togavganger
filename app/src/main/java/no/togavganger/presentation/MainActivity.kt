@@ -1,9 +1,13 @@
 package no.togavganger.presentation
 
 import android.os.Bundle
+import android.view.inputmethod.InputMethodManager
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
+import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.viewinterop.AndroidView
 import androidx.core.splashscreen.SplashScreen.Companion.installSplashScreen
+import android.widget.EditText
 import androidx.wear.tiles.TileService
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
@@ -24,11 +28,15 @@ import androidx.wear.compose.material3.ScreenScaffold
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.graphics.Color
 import androidx.lifecycle.viewmodel.compose.viewModel
 import androidx.wear.compose.material.Button
 import androidx.wear.compose.material.ButtonDefaults
@@ -56,7 +64,7 @@ class MainActivity : ComponentActivity() {
         setTheme(android.R.style.Theme_DeviceDefault)
         setContent {
             TogavgangerTheme {
-                TrainDeparturesScreen()
+                TrainDeparturesScreen(activity = this)
                 // TestScreen("Android", { })
             }
         }
@@ -171,20 +179,40 @@ fun TrainDeparturesScreenError(
 
 @Composable
 fun TrainDeparturesScreen(
-    viewModel: TrainViewModel = viewModel()
+    viewModel: TrainViewModel = viewModel(),
+    activity: ComponentActivity? = null
 ) {
     val uiState by viewModel.uiState.collectAsState()
     val scrollState = rememberTransformingLazyColumnState()
-    if (uiState.showSettings || uiState.selectedStation == null) {
+    if (uiState.showSettings || uiState.selectedStationId == null) {
         SettingsScreen(
-            selectedStation = uiState.selectedStation,
+            selectedStation = uiState.selectedStationName,
+            isSearching = uiState.isSearching,
+            searchQuery = uiState.searchQuery,
+            searchResults = uiState.searchResults,
+            isSearchLoading = uiState.isSearchLoading,
             onStationSelected = { station -> viewModel.handleEvent(TrainEvent.SelectStation(station)) },
+            onToggleSearch = { viewModel.handleEvent(TrainEvent.ToggleSearch) },
+            onSearchQueryChanged = { query -> viewModel.handleEvent(TrainEvent.UpdateSearchQuery(query)) },
+            onSearchResultSelected = { result -> viewModel.handleEvent(TrainEvent.SelectSearchResult(result)) },
             onDismiss = { 
-                if (uiState.selectedStation != null) {
+                if (uiState.selectedStationId != null) {
                     viewModel.handleEvent(TrainEvent.DismissSettings)
                 }
-            }
+            },
+            activity = activity
         )
+        if (uiState.isSearching && activity != null) {
+            SearchInputDialog(
+                searchQuery = uiState.searchQuery,
+                searchResults = uiState.searchResults,
+                isSearchLoading = uiState.isSearchLoading,
+                onSearchQueryChanged = { query -> viewModel.handleEvent(TrainEvent.UpdateSearchQuery(query)) },
+                onSearchResultSelected = { result -> viewModel.handleEvent(TrainEvent.SelectSearchResult(result)) },
+                onDismiss = { viewModel.handleEvent(TrainEvent.ToggleSearch) },
+                activity = activity
+            )
+        }
     } else {
         when {
             uiState.isLoading -> {
@@ -468,7 +496,7 @@ fun DepartureDetailsDialog(
                     Text(
                         text = "Planlagt: ${departure.aimedTime}",
                         style = MaterialTheme.typography.body2,
-                        color = MaterialTheme.colors.onSurfaceVariant,
+                        color = if (departure.isDelayed) MaterialTheme.colors.error else MaterialTheme.colors.onSurfaceVariant,
                         modifier = Modifier.fillMaxWidth(),
                         textAlign = TextAlign.Center
                     )
@@ -478,7 +506,7 @@ fun DepartureDetailsDialog(
                         Text(
                             text = "Forventet: ${departure.expectedTime}",
                             style = MaterialTheme.typography.body2,
-                            color = getOnTertiaryContainerColor(),
+                            color = Color(0xFF64B5F6),
                             modifier = Modifier.fillMaxWidth(),
                             textAlign = TextAlign.Center
                         )
@@ -492,8 +520,16 @@ fun DepartureDetailsDialog(
 @Composable
 fun SettingsScreen(
     selectedStation: String?,
+    isSearching: Boolean,
+    searchQuery: String,
+    searchResults: List<no.togavganger.data.StationSearchResult>,
+    isSearchLoading: Boolean,
     onStationSelected: (String) -> Unit,
-    onDismiss: () -> Unit
+    onToggleSearch: () -> Unit,
+    onSearchQueryChanged: (String) -> Unit,
+    onSearchResultSelected: (no.togavganger.data.StationSearchResult) -> Unit,
+    onDismiss: () -> Unit,
+    activity: ComponentActivity?
 ) {
     val scrollState = rememberTransformingLazyColumnState()
     val stations = listOf("Haugensua stasjon", "Grorud stasjon")
@@ -503,7 +539,7 @@ fun SettingsScreen(
             if (selectedStation != null) {
                 EdgeButton(
                     onClick = onDismiss,
-                    buttonSize = EdgeButtonSize.ExtraSmall
+                    buttonSize = EdgeButtonSize.Medium
                 ) {
                     Text("Tilbake")
                 }
@@ -535,7 +571,7 @@ fun SettingsScreen(
             item {
                 Spacer(modifier = Modifier.height(8.dp))
             }
-            stations.forEach { station ->
+            if (!isSearching) {
                 item {
                     Box(
                         modifier = Modifier
@@ -543,32 +579,285 @@ fun SettingsScreen(
                             .padding(horizontal = 4.dp)
                     ) {
                         Button(
-                            onClick = { onStationSelected(station) },
+                            onClick = onToggleSearch,
                             modifier = Modifier
                                 .fillMaxWidth()
                                 .height(38.dp),
-                            colors = if (station == selectedStation) {
-                                ButtonDefaults.primaryButtonColors(
-                                    backgroundColor = MaterialTheme.colors.primary,
-                                    contentColor = MaterialTheme.colors.onPrimary
-                                )
-                            } else {
-                                ButtonDefaults.secondaryButtonColors(
-                                    backgroundColor = getSurfaceContainerColor(),
-                                    contentColor = getOnSurfaceColor()
-                                )
-                            }
+                            colors = ButtonDefaults.secondaryButtonColors(
+                                backgroundColor = getSurfaceContainerColor(),
+                                contentColor = getOnSurfaceColor()
+                            )
                         ) {
                             Text(
-                                text = station,
+                                text = "🔍 Søk",
                                 style = MaterialTheme.typography.title3,
-                                color = if (station == selectedStation) {
-                                    MaterialTheme.colors.onPrimary
-                                } else {
-                                    getOnSurfaceColor()
-                                }
+                                color = getOnSurfaceColor()
                             )
                         }
+                    }
+                }
+                item {
+                    Spacer(modifier = Modifier.height(4.dp))
+                }
+            } else {
+                item {
+                    Box(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(horizontal = 4.dp)
+                    ) {
+                        Button(
+                            onClick = onToggleSearch,
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .height(38.dp),
+                            colors = ButtonDefaults.secondaryButtonColors(
+                                backgroundColor = getSurfaceContainerColor(),
+                                contentColor = getOnSurfaceColor()
+                            )
+                        ) {
+                            Text(
+                                text = if (searchQuery.isEmpty()) "Søk..." else searchQuery,
+                                style = MaterialTheme.typography.title3,
+                                color = getOnSurfaceColor()
+                            )
+                        }
+                    }
+                }
+                item {
+                    Spacer(modifier = Modifier.height(4.dp))
+                }
+                if (isSearchLoading) {
+                    item {
+                        Text(
+                            text = "Søker...",
+                            style = MaterialTheme.typography.body2,
+                            color = MaterialTheme.colors.onSurfaceVariant,
+                            modifier = Modifier.fillMaxWidth(),
+                            textAlign = TextAlign.Center
+                        )
+                    }
+                } else if (searchResults.isNotEmpty()) {
+                    searchResults.forEach { result ->
+                        item {
+                            Box(
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .padding(horizontal = 4.dp)
+                            ) {
+                                Button(
+                                    onClick = { onSearchResultSelected(result) },
+                                    modifier = Modifier
+                                        .fillMaxWidth()
+                                        .height(38.dp),
+                                    colors = ButtonDefaults.secondaryButtonColors(
+                                        backgroundColor = getSurfaceContainerColor(),
+                                        contentColor = getOnSurfaceColor()
+                                    )
+                                ) {
+                                    Text(
+                                        text = result.name,
+                                        style = MaterialTheme.typography.title3,
+                                        color = getOnSurfaceColor()
+                                    )
+                                }
+                            }
+                        }
+                    }
+                } else if (searchQuery.length >= 2) {
+                    item {
+                        Text(
+                            text = "Ingen resultater",
+                            style = MaterialTheme.typography.body2,
+                            color = MaterialTheme.colors.onSurfaceVariant,
+                            modifier = Modifier.fillMaxWidth(),
+                            textAlign = TextAlign.Center
+                        )
+                    }
+                }
+            }
+            if (!isSearching) {
+                stations.forEach { station ->
+                    item {
+                        Box(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .padding(horizontal = 4.dp)
+                        ) {
+                            Button(
+                                onClick = { onStationSelected(station) },
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .height(38.dp),
+                                colors = if (station == selectedStation) {
+                                    ButtonDefaults.primaryButtonColors(
+                                        backgroundColor = MaterialTheme.colors.primary,
+                                        contentColor = MaterialTheme.colors.onPrimary
+                                    )
+                                } else {
+                                    ButtonDefaults.secondaryButtonColors(
+                                        backgroundColor = getSurfaceContainerColor(),
+                                        contentColor = getOnSurfaceColor()
+                                    )
+                                }
+                            ) {
+                                Text(
+                                    text = station,
+                                    style = MaterialTheme.typography.title3,
+                                    color = if (station == selectedStation) {
+                                        MaterialTheme.colors.onPrimary
+                                    } else {
+                                        getOnSurfaceColor()
+                                    }
+                                )
+                            }
+                        }
+                    }
+                }
+            }
+        }
+    }
+}
+
+@Composable
+fun SearchInputDialog(
+    searchQuery: String,
+    searchResults: List<no.togavganger.data.StationSearchResult>,
+    isSearchLoading: Boolean,
+    onSearchQueryChanged: (String) -> Unit,
+    onSearchResultSelected: (no.togavganger.data.StationSearchResult) -> Unit,
+    onDismiss: () -> Unit,
+    activity: ComponentActivity
+) {
+    val context = LocalContext.current
+    var editText: EditText? by remember { mutableStateOf(null) }
+    Dialog(
+        showDialog = true,
+        onDismissRequest = onDismiss
+    ) {
+        val scrollState = rememberTransformingLazyColumnState()
+        ScreenScaffold(
+            scrollState = scrollState,
+            edgeButton = {
+                EdgeButton(
+                    onClick = onDismiss,
+                    buttonSize = EdgeButtonSize.ExtraSmall
+                ) {
+                    Text("Lukk")
+                }
+            },
+            contentPadding = PaddingValues(
+                start = 14.dp,
+                end = 14.dp,
+                top = 14.dp,
+                bottom = 45.dp
+            )
+        ) { contentPadding ->
+            TransformingLazyColumn(
+                state = scrollState,
+                contentPadding = contentPadding,
+                modifier = Modifier.fillMaxSize()
+            ) {
+                item {
+                    ListHeader {
+                        Text(
+                            text = "Søk etter stasjon",
+                            style = MaterialTheme.typography.title3,
+                            textAlign = TextAlign.Center,
+                            modifier = Modifier.fillMaxWidth()
+                        )
+                    }
+                }
+                item {
+                    Spacer(modifier = Modifier.height(8.dp))
+                }
+                item {
+                    AndroidView(
+                        factory = { ctx ->
+                            EditText(ctx).apply {
+                                hint = "Skriv stasjonsnavn..."
+                                setText(searchQuery)
+                                setSingleLine(true)
+                                editText = this
+                                requestFocus()
+                                post {
+                                    val imm = ctx.getSystemService(android.content.Context.INPUT_METHOD_SERVICE) as InputMethodManager
+                                    imm.showSoftInput(this, InputMethodManager.SHOW_IMPLICIT)
+                                }
+                                setOnEditorActionListener { _, _, _ ->
+                                    onSearchQueryChanged(text.toString())
+                                    false
+                                }
+                                addTextChangedListener(object : android.text.TextWatcher {
+                                    override fun beforeTextChanged(s: CharSequence?, start: Int, count: Int, after: Int) {}
+                                    override fun onTextChanged(s: CharSequence?, start: Int, before: Int, count: Int) {
+                                        onSearchQueryChanged(s?.toString() ?: "")
+                                    }
+                                    override fun afterTextChanged(s: android.text.Editable?) {}
+                                })
+                            }
+                        },
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .height(40.dp)
+                            .padding(horizontal = 4.dp)
+                    )
+                }
+                if (isSearchLoading) {
+                    item {
+                        Spacer(modifier = Modifier.height(8.dp))
+                    }
+                    item {
+                        Text(
+                            text = "Søker...",
+                            style = MaterialTheme.typography.body2,
+                            color = MaterialTheme.colors.onSurfaceVariant,
+                            modifier = Modifier.fillMaxWidth(),
+                            textAlign = TextAlign.Center
+                        )
+                    }
+                } else if (searchResults.isNotEmpty()) {
+                    item {
+                        Spacer(modifier = Modifier.height(8.dp))
+                    }
+                    searchResults.forEach { result ->
+                        item {
+                            Box(
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .padding(horizontal = 4.dp)
+                            ) {
+                                Button(
+                                    onClick = { onSearchResultSelected(result) },
+                                    modifier = Modifier
+                                        .fillMaxWidth()
+                                        .height(38.dp),
+                                    colors = ButtonDefaults.secondaryButtonColors(
+                                        backgroundColor = getSurfaceContainerColor(),
+                                        contentColor = getOnSurfaceColor()
+                                    )
+                                ) {
+                                    Text(
+                                        text = result.name,
+                                        style = MaterialTheme.typography.title3,
+                                        color = getOnSurfaceColor()
+                                    )
+                                }
+                            }
+                        }
+                    }
+                } else if (searchQuery.length >= 2) {
+                    item {
+                        Spacer(modifier = Modifier.height(8.dp))
+                    }
+                    item {
+                        Text(
+                            text = "Ingen resultater",
+                            style = MaterialTheme.typography.body2,
+                            color = MaterialTheme.colors.onSurfaceVariant,
+                            modifier = Modifier.fillMaxWidth(),
+                            textAlign = TextAlign.Center
+                        )
                     }
                 }
             }

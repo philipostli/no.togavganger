@@ -43,13 +43,8 @@ class MainTileService : SuspendingTileService() {
     ): TileBuilders.Tile {
         val repository = TrainRepository()
         val stationPreferences = StationPreferences(this)
-        val selectedStation = stationPreferences.getSelectedStation()
-        val stopPlaceId = when (selectedStation) {
-            "Haugensua stasjon" -> "NSR:StopPlace:59653"
-            "Grorud stasjon" -> "NSR:StopPlace:59620"
-            else -> "NSR:StopPlace:59653"
-        }
-        val trainData = repository.fetchTrainData(stopPlaceId)
+        val selectedStationId = stationPreferences.getSelectedStationId() ?: "NSR:StopPlace:59653"
+        val trainData = repository.fetchTrainData(selectedStationId)
         return TileBuilders.Tile.Builder()
             .setResourcesVersion(RESOURCES_VERSION)
             .setFreshnessIntervalMillis(60 * 1000L)

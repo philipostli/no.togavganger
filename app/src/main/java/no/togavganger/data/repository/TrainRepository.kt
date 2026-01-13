@@ -19,7 +19,7 @@ class TrainRepository {
                 val connection = url.openConnection() as HttpURLConnection
                 connection.requestMethod = "POST"
                 connection.setRequestProperty("Content-Type", "application/json")
-                connection.setRequestProperty("ET-Client-Name", "philip-wear-tiles-codelab")
+                connection.setRequestProperty("ET-Client-Name", "togavganger.no")
                 connection.doOutput = true
                 val query = """
                 {

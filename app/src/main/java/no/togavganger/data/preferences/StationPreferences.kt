@@ -8,14 +8,21 @@ class StationPreferences(context: Context) {
         PREFS_NAME,
         Context.MODE_PRIVATE
     )
-    fun getSelectedStation(): String? {
-        return preferences.getString(KEY_SELECTED_STATION, null)
+    fun getSelectedStationId(): String? {
+        return preferences.getString(KEY_SELECTED_STATION_ID, null)
     }
-    fun setSelectedStation(station: String?) {
-        preferences.edit().putString(KEY_SELECTED_STATION, station).apply()
+    fun getSelectedStationName(): String? {
+        return preferences.getString(KEY_SELECTED_STATION_NAME, null)
+    }
+    fun setSelectedStation(stationId: String?, stationName: String?) {
+        preferences.edit().apply {
+            putString(KEY_SELECTED_STATION_ID, stationId)
+            putString(KEY_SELECTED_STATION_NAME, stationName)
+        }.apply()
     }
     companion object {
         private const val PREFS_NAME = "station_preferences"
-        private const val KEY_SELECTED_STATION = "selected_station"
+        private const val KEY_SELECTED_STATION_ID = "selected_station_id"
+        private const val KEY_SELECTED_STATION_NAME = "selected_station_name"
     }
 }
