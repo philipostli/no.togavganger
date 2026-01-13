@@ -113,6 +113,8 @@ fun DepartureDetailsDialogPreview() {
             departure = mockDeparture,
             stopName = "Haugenstua stasjon",
             lineCode = "L1",
+            stopPlaceId = "NSR:StopPlace:59653",
+            activity = null,
             onDismiss = {}
         )
     }

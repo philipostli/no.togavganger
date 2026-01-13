@@ -1,5 +1,7 @@
 package no.togavganger.presentation
 
+import android.content.Intent
+import android.net.Uri
 import android.os.Bundle
 import android.view.inputmethod.InputMethodManager
 import androidx.activity.ComponentActivity
@@ -12,7 +14,6 @@ import androidx.wear.tiles.TileService
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
-import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
@@ -214,53 +215,55 @@ fun TrainDeparturesScreen(
             )
         }
     } else {
-        when {
-            uiState.isLoading -> {
+    when {
+        uiState.isLoading -> {
+            Box(
+                modifier = Modifier
+                    .fillMaxSize()
+                    .background(MaterialTheme.colors.background),
+                contentAlignment = Alignment.Center
+            ) {
+                Text(
+                    text = "Laster...",
+                    style = MaterialTheme.typography.body1,
+                    color = MaterialTheme.colors.onBackground
+                )
+            }
+        }
+        uiState.error != null -> {
+            TrainDeparturesScreenError(
+                errorText = uiState.error ?: "",
+                onRetry = { viewModel.handleEvent(TrainEvent.LoadData) },
+                scrollState = scrollState
+            )
+        }
+        uiState.trainData != null -> {
+            val trainData = uiState.trainData
+            if (trainData != null) {
                 Box(
                     modifier = Modifier
                         .fillMaxSize()
-                        .background(MaterialTheme.colors.background),
-                    contentAlignment = Alignment.Center
+                        .background(MaterialTheme.colors.background)
                 ) {
-                    Text(
-                        text = "Laster...",
-                        style = MaterialTheme.typography.body1,
-                        color = MaterialTheme.colors.onBackground
-                    )
-                }
-            }
-            uiState.error != null -> {
-                TrainDeparturesScreenError(
-                    errorText = uiState.error ?: "",
-                    onRetry = { viewModel.handleEvent(TrainEvent.LoadData) },
-                    scrollState = scrollState
-                )
-            }
-            uiState.trainData != null -> {
-                val trainData = uiState.trainData
-                if (trainData != null) {
-                    Box(
-                        modifier = Modifier
-                            .fillMaxSize()
-                            .background(MaterialTheme.colors.background)
-                    ) {
-                        TimeText()
-                        TrainListContent(
-                            trainData = trainData,
+                    TimeText()
+                    TrainListContent(
+                        trainData = trainData,
                             onDepartureClick = { index -> viewModel.handleEvent(TrainEvent.SelectDeparture(index)) },
                             onSettingsClick = { viewModel.handleEvent(TrainEvent.ShowSettings) }
-                        )
-                        uiState.selectedDepartureIndex?.let { index ->
-                            val departure = trainData.departures.getOrNull(index)
-                            if (departure != null) {
-                                DepartureDetailsDialog(
-                                    departure = departure,
-                                    stopName = trainData.stopName,
-                                    lineCode = trainData.lineCode,
-                                    onDismiss = { viewModel.handleEvent(TrainEvent.DismissDetails) }
-                                )
-                            }
+                    )
+                    uiState.selectedDepartureIndex?.let { index ->
+                        val departure = trainData.departures.getOrNull(index)
+                        if (departure != null) {
+                            DepartureDetailsDialog(
+                                departure = departure,
+                                stopName = trainData.stopName,
+                                lineCode = trainData.lineCode,
+                                stopPlaceId = uiState.selectedStationId,
+                                activity = activity,
+                                onDismiss = { viewModel.handleEvent(TrainEvent.DismissDetails) }
+                            )
                         }
+                    }
                     }
                 }
             }
@@ -412,6 +415,8 @@ fun DepartureDetailsDialog(
     departure: Departure,
     stopName: String,
     lineCode: String,
+    stopPlaceId: String?,
+    activity: ComponentActivity?,
     onDismiss: () -> Unit
 ) {
     Dialog(
@@ -510,6 +515,39 @@ fun DepartureDetailsDialog(
                             modifier = Modifier.fillMaxWidth(),
                             textAlign = TextAlign.Center
                         )
+                    }
+                }
+                if (stopPlaceId != null) {
+                    item {
+                        Spacer(modifier = Modifier.height(16.dp))
+                    }
+                    item {
+                        Box(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .padding(horizontal = 4.dp)
+                        ) {
+                            Button(
+                                onClick = {
+                                    val url = "https://entur.no/nearby-stop-place-detail?id=$stopPlaceId&transportModes=rail"
+                                    val intent = Intent(Intent.ACTION_VIEW, Uri.parse(url))
+                                    activity?.startActivity(intent)
+                                },
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .height(38.dp),
+                                colors = ButtonDefaults.secondaryButtonColors(
+                                    backgroundColor = getSurfaceContainerColor(),
+                                    contentColor = getOnSurfaceColor()
+                                )
+                            ) {
+                                Text(
+                                    text = "Åpne i Entur",
+                                    style = MaterialTheme.typography.title3,
+                                    color = getOnSurfaceColor()
+                                )
+                            }
+                        }
                     }
                 }
             }
