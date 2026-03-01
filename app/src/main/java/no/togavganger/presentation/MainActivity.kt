@@ -781,7 +781,7 @@ fun DestinationSelectionScreen(
                             ) {
                                 Row(
                                     modifier = Modifier.fillMaxWidth(),
-                                    horizontalArrangement = Arrangement.SpaceBetween,
+                                    horizontalArrangement = Arrangement.Center,
                                     verticalAlignment = Alignment.CenterVertically
                                 ) {
                                     Text(
@@ -790,6 +790,7 @@ fun DestinationSelectionScreen(
                                         color = if (isSelected) MaterialTheme.colors.onPrimary else getOnSurfaceColor()
                                     )
                                     if (isSelected) {
+                                        Spacer(modifier = Modifier.width(8.dp))
                                         Text(
                                             text = "✓",
                                             style = MaterialTheme.typography.title3,
