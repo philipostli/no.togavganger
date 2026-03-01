@@ -48,6 +48,7 @@ import androidx.wear.compose.material3.EdgeButtonSize
 import androidx.wear.compose.material3.Text
 import androidx.wear.compose.material3.TimeText
 import no.togavganger.data.Departure
+import no.togavganger.data.LineInfo
 import no.togavganger.data.TrainData
 import no.togavganger.presentation.theme.TogavgangerTheme
 import no.togavganger.tile.MainTileService
@@ -214,6 +215,21 @@ fun TrainDeparturesScreen(
                 activity = activity
             )
         }
+    } else if (uiState.showLineSelection) {
+        LineSelectionScreen(
+            availableLines = uiState.availableLines,
+            isLoadingLines = uiState.isLoadingLines,
+            onLineSelected = { line -> viewModel.handleEvent(TrainEvent.SelectLine(line)) },
+            onDismiss = { viewModel.handleEvent(TrainEvent.DismissLineSelection) }
+        )
+    } else if (uiState.showDestinationSelection) {
+        DestinationSelectionScreen(
+            availableDestinations = uiState.availableDestinations,
+            selectedDestinations = uiState.selectedDestinations,
+            isLoadingDestinations = uiState.isLoadingDestinations,
+            onToggleDestination = { dest -> viewModel.handleEvent(TrainEvent.ToggleDestination(dest)) },
+            onConfirm = { viewModel.handleEvent(TrainEvent.ConfirmDestinations) }
+        )
     } else {
     when {
         uiState.isLoading -> {
@@ -248,8 +264,9 @@ fun TrainDeparturesScreen(
                     TimeText()
                     TrainListContent(
                         trainData = trainData,
-                            onDepartureClick = { index -> viewModel.handleEvent(TrainEvent.SelectDeparture(index)) },
-                            onSettingsClick = { viewModel.handleEvent(TrainEvent.ShowSettings) }
+                        onDepartureClick = { index -> viewModel.handleEvent(TrainEvent.SelectDeparture(index)) },
+                        onSettingsClick = { viewModel.handleEvent(TrainEvent.ShowSettings) },
+                        onLinesClick = { viewModel.handleEvent(TrainEvent.ShowLineSelection) }
                     )
                     uiState.selectedDepartureIndex?.let { index ->
                         val departure = trainData.departures.getOrNull(index)
@@ -275,7 +292,8 @@ fun TrainDeparturesScreen(
 fun TrainListContent(
     trainData: TrainData,
     onDepartureClick: (Int) -> Unit,
-    onSettingsClick: () -> Unit
+    onSettingsClick: () -> Unit,
+    onLinesClick: () -> Unit = {}
 ) {
     val scrollState = rememberTransformingLazyColumnState()
     ScreenScaffold(
@@ -348,6 +366,33 @@ fun TrainListContent(
                         modifier = Modifier.fillMaxWidth(),
                         textAlign = TextAlign.Center
                     )
+                }
+            }
+            item {
+                Spacer(modifier = Modifier.height(4.dp))
+            }
+            item {
+                Box(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(horizontal = 4.dp)
+                ) {
+                    Button(
+                        onClick = onLinesClick,
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .height(38.dp),
+                        colors = ButtonDefaults.secondaryButtonColors(
+                            backgroundColor = getSurfaceContainerColor(),
+                            contentColor = getOnSurfaceColor()
+                        )
+                    ) {
+                        Text(
+                            text = "Linjer",
+                            style = MaterialTheme.typography.title3,
+                            color = getOnSurfaceColor()
+                        )
+                    }
                 }
             }
         }
@@ -546,6 +591,212 @@ fun DepartureDetailsDialog(
                                     style = MaterialTheme.typography.title3,
                                     color = getOnSurfaceColor()
                                 )
+                            }
+                        }
+                    }
+                }
+            }
+        }
+    }
+}
+
+@Composable
+fun LineSelectionScreen(
+    availableLines: List<LineInfo>,
+    isLoadingLines: Boolean,
+    onLineSelected: (LineInfo) -> Unit,
+    onDismiss: () -> Unit
+) {
+    val scrollState = rememberTransformingLazyColumnState()
+    ScreenScaffold(
+        scrollState = scrollState,
+        edgeButton = {
+            EdgeButton(
+                onClick = onDismiss,
+                buttonSize = EdgeButtonSize.ExtraSmall
+            ) {
+                Text("Tilbake")
+            }
+        },
+        contentPadding = PaddingValues(
+            start = 14.dp,
+            end = 14.dp,
+            top = 14.dp,
+            bottom = 45.dp
+        )
+    ) { contentPadding ->
+        TransformingLazyColumn(
+            state = scrollState,
+            contentPadding = contentPadding,
+            modifier = Modifier.fillMaxSize()
+        ) {
+            item {
+                ListHeader {
+                    Text(
+                        text = "Velg linje",
+                        style = MaterialTheme.typography.title2,
+                        color = MaterialTheme.colors.primary,
+                        modifier = Modifier.fillMaxWidth(),
+                        textAlign = TextAlign.Center
+                    )
+                }
+            }
+            item {
+                Spacer(modifier = Modifier.height(8.dp))
+            }
+            if (isLoadingLines) {
+                item {
+                    Text(
+                        text = "Laster...",
+                        style = MaterialTheme.typography.body2,
+                        color = MaterialTheme.colors.onSurfaceVariant,
+                        modifier = Modifier.fillMaxWidth(),
+                        textAlign = TextAlign.Center
+                    )
+                }
+            } else {
+                availableLines.forEach { line ->
+                    item {
+                        Box(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .padding(horizontal = 4.dp)
+                        ) {
+                            val textHex = line.textColour.let { if (it.startsWith("#")) it else "#$it" }
+                            val bgHex = line.colour.let { if (it.startsWith("#")) it else "#$it" }
+                            val lineColor = try {
+                                Color(android.graphics.Color.parseColor(textHex))
+                            } catch (_: Exception) {
+                                getOnSurfaceColor()
+                            }
+                            val bgColor = try {
+                                Color(android.graphics.Color.parseColor(bgHex))
+                            } catch (_: Exception) {
+                                getSurfaceContainerColor()
+                            }
+                            Button(
+                                onClick = { onLineSelected(line) },
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .height(38.dp),
+                                colors = ButtonDefaults.secondaryButtonColors(
+                                    backgroundColor = bgColor,
+                                    contentColor = lineColor
+                                )
+                            ) {
+                                Text(
+                                    text = line.publicCode,
+                                    style = MaterialTheme.typography.title3,
+                                    color = lineColor
+                                )
+                            }
+                        }
+                    }
+                }
+            }
+        }
+    }
+}
+
+@Composable
+fun DestinationSelectionScreen(
+    availableDestinations: List<String>,
+    selectedDestinations: Set<String>,
+    isLoadingDestinations: Boolean,
+    onToggleDestination: (String) -> Unit,
+    onConfirm: () -> Unit
+) {
+    val scrollState = rememberTransformingLazyColumnState()
+    ScreenScaffold(
+        scrollState = scrollState,
+        edgeButton = {
+            EdgeButton(
+                onClick = onConfirm,
+                buttonSize = EdgeButtonSize.ExtraSmall
+            ) {
+                Text("Ferdig")
+            }
+        },
+        contentPadding = PaddingValues(
+            start = 14.dp,
+            end = 14.dp,
+            top = 14.dp,
+            bottom = 45.dp
+        )
+    ) { contentPadding ->
+        TransformingLazyColumn(
+            state = scrollState,
+            contentPadding = contentPadding,
+            modifier = Modifier.fillMaxSize()
+        ) {
+            item {
+                ListHeader {
+                    Text(
+                        text = "Velg destinasjoner",
+                        style = MaterialTheme.typography.title2,
+                        color = MaterialTheme.colors.primary,
+                        modifier = Modifier.fillMaxWidth(),
+                        textAlign = TextAlign.Center
+                    )
+                }
+            }
+            item {
+                Spacer(modifier = Modifier.height(8.dp))
+            }
+            if (isLoadingDestinations) {
+                item {
+                    Text(
+                        text = "Laster...",
+                        style = MaterialTheme.typography.body2,
+                        color = MaterialTheme.colors.onSurfaceVariant,
+                        modifier = Modifier.fillMaxWidth(),
+                        textAlign = TextAlign.Center
+                    )
+                }
+            } else {
+                availableDestinations.forEach { dest ->
+                    item {
+                        Box(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .padding(horizontal = 4.dp)
+                        ) {
+                            val isSelected = dest in selectedDestinations
+                            Button(
+                                onClick = { onToggleDestination(dest) },
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .height(38.dp),
+                                colors = if (isSelected) {
+                                    ButtonDefaults.primaryButtonColors(
+                                        backgroundColor = MaterialTheme.colors.primary,
+                                        contentColor = MaterialTheme.colors.onPrimary
+                                    )
+                                } else {
+                                    ButtonDefaults.secondaryButtonColors(
+                                        backgroundColor = getSurfaceContainerColor(),
+                                        contentColor = getOnSurfaceColor()
+                                    )
+                                }
+                            ) {
+                                Row(
+                                    modifier = Modifier.fillMaxWidth(),
+                                    horizontalArrangement = Arrangement.SpaceBetween,
+                                    verticalAlignment = Alignment.CenterVertically
+                                ) {
+                                    Text(
+                                        text = dest,
+                                        style = MaterialTheme.typography.title3,
+                                        color = if (isSelected) MaterialTheme.colors.onPrimary else getOnSurfaceColor()
+                                    )
+                                    if (isSelected) {
+                                        Text(
+                                            text = "✓",
+                                            style = MaterialTheme.typography.title3,
+                                            color = if (isSelected) MaterialTheme.colors.onPrimary else getOnSurfaceColor()
+                                        )
+                                    }
+                                }
                             }
                         }
                     }

@@ -3,6 +3,7 @@ package no.togavganger.data.repository
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 import no.togavganger.data.Departure
+import no.togavganger.data.LineInfo
 import no.togavganger.data.TrainData
 import org.json.JSONObject
 import java.net.HttpURLConnection
@@ -12,15 +13,117 @@ import java.time.format.DateTimeFormatter
 import java.time.temporal.ChronoUnit
 
 class TrainRepository {
-    suspend fun fetchTrainData(stopPlaceId: String): TrainData {
+    suspend fun fetchLines(stopPlaceId: String): List<LineInfo> {
         return withContext(Dispatchers.IO) {
             try {
-                val url = URL("https://api.entur.io/journey-planner/v3/graphql")
-                val connection = url.openConnection() as HttpURLConnection
-                connection.requestMethod = "POST"
-                connection.setRequestProperty("Content-Type", "application/json")
-                connection.setRequestProperty("ET-Client-Name", "togavganger.no")
-                connection.doOutput = true
+                val query = """
+                {
+                  stopPlace(id: "$stopPlaceId") {
+                    name
+                    estimatedCalls(
+                        numberOfDepartures: 20
+                        whiteListedModes: [rail]
+                        includeCancelledTrips: true
+                    ) {
+                        serviceJourney {
+                            line {
+                                id
+                                publicCode
+                                presentation {
+                                    textColour
+                                    colour
+                                }
+                            }
+                        }
+                    }
+                  }
+                }
+                """.trimIndent()
+                val response = executeGraphQL(query)
+                if (response == null) return@withContext emptyList()
+                val stopPlace = response.getJSONObject("data").getJSONObject("stopPlace")
+                val estimatedCalls = stopPlace.getJSONArray("estimatedCalls")
+                val seen = mutableSetOf<String>()
+                val lines = mutableListOf<LineInfo>()
+                for (i in 0 until estimatedCalls.length()) {
+                    val call = estimatedCalls.getJSONObject(i)
+                    val line = call.optJSONObject("serviceJourney")?.optJSONObject("line") ?: continue
+                    val id = line.getString("id")
+                    if (id in seen) continue
+                    seen.add(id)
+                    val publicCode = line.optString("publicCode", "")
+                    val presentation = line.optJSONObject("presentation")
+                    val textColour = presentation?.optString("textColour")?.takeIf { it.isNotBlank() } ?: "000000"
+                    val colour = presentation?.optString("colour")?.takeIf { it.isNotBlank() } ?: "FFFFFF"
+                    lines.add(LineInfo(id = id, publicCode = publicCode, textColour = textColour, colour = colour))
+                }
+                lines
+            } catch (e: Exception) {
+                emptyList()
+            }
+        }
+    }
+
+    suspend fun fetchDestinations(stopPlaceId: String, lineId: String): List<String> {
+        return withContext(Dispatchers.IO) {
+            try {
+                val query = """
+                {
+                  stopPlace(id: "$stopPlaceId") {
+                    name
+                    estimatedCalls(
+                        numberOfDepartures: 10
+                        whiteListedModes: [rail]
+                        whiteListed: { lines: "$lineId" }
+                        includeCancelledTrips: true
+                    ) {
+                        destinationDisplay { frontText }
+                        serviceJourney {
+                            line { id publicCode }
+                        }
+                    }
+                  }
+                }
+                """.trimIndent()
+                val response = executeGraphQL(query)
+                if (response == null) return@withContext emptyList()
+                val stopPlace = response.getJSONObject("data").getJSONObject("stopPlace")
+                val estimatedCalls = stopPlace.getJSONArray("estimatedCalls")
+                val seen = mutableSetOf<String>()
+                val destinations = mutableListOf<String>()
+                for (i in 0 until estimatedCalls.length()) {
+                    val call = estimatedCalls.getJSONObject(i)
+                    val dest = call.optJSONObject("destinationDisplay")?.optString("frontText") ?: continue
+                    if (dest !in seen) {
+                        seen.add(dest)
+                        destinations.add(dest)
+                    }
+                }
+                destinations
+            } catch (e: Exception) {
+                emptyList()
+            }
+        }
+    }
+
+    private fun executeGraphQL(query: String): JSONObject? {
+        val url = URL("https://api.entur.io/journey-planner/v3/graphql")
+        val connection = url.openConnection() as HttpURLConnection
+        connection.requestMethod = "POST"
+        connection.setRequestProperty("Content-Type", "application/json")
+        connection.setRequestProperty("ET-Client-Name", "togavganger.no")
+        connection.doOutput = true
+        val body = JSONObject().apply { put("query", query) }
+        connection.outputStream.use { it.write(body.toString().toByteArray()) }
+        if (connection.responseCode != HttpURLConnection.HTTP_OK) return null
+        val response = connection.inputStream.bufferedReader().use { it.readText() }
+        return JSONObject(response)
+    }
+
+    suspend fun fetchTrainData(stopPlaceId: String, lineId: String? = null, destinations: Set<String>? = null): TrainData {
+        return withContext(Dispatchers.IO) {
+            try {
+                val whiteListedClause = if (lineId != null) "\n                        whiteListed: { lines: \"$lineId\" }" else ""
                 val query = """
                 {
                   stopPlace(id: "$stopPlaceId") {
@@ -28,6 +131,7 @@ class TrainRepository {
                     estimatedCalls(
                         numberOfDepartures: 10 
                         whiteListedModes: [rail]
+                        $whiteListedClause
                         includeCancelledTrips: true
                     ) {
                         aimedDepartureTime
@@ -47,26 +151,21 @@ class TrainRepository {
                   }
                 }
                 """.trimIndent()
-                val body = JSONObject().apply {
-                    put("query", query)
+                val jsonResponse = executeGraphQL(query)
+                if (jsonResponse == null) {
+                    return@withContext TrainData("API Feil", "", emptyList())
                 }
-                connection.outputStream.use { it.write(body.toString().toByteArray()) }
-                val responseCode = connection.responseCode
-                if (responseCode != HttpURLConnection.HTTP_OK) {
-                    return@withContext TrainData("API Feil", responseCode.toString(), emptyList())
-                }
-                val response = connection.inputStream.bufferedReader().use { it.readText() }
-                val jsonResponse = JSONObject(response)
                 val stopPlace = jsonResponse.getJSONObject("data").getJSONObject("stopPlace")
                 val stopName = stopPlace.getString("name")
                 val estimatedCalls = stopPlace.getJSONArray("estimatedCalls")
                 val departures = mutableListOf<Departure>()
                 var topLevelLineCode = ""
                 val timeFormatter = DateTimeFormatter.ofPattern("HH:mm")
+                val destinationsFilter = destinations?.takeIf { it.isNotEmpty() }
                 for (i in 0 until estimatedCalls.length()) {
                     val call = estimatedCalls.getJSONObject(i)
                     val dest = call.getJSONObject("destinationDisplay").getString("frontText")
-                    if (dest !in listOf("Spikkestad", "Asker", "Oslo S", "Drammen")) continue
+                    if (destinationsFilter != null && dest !in destinationsFilter) continue
                     val lineCode = call.getJSONObject("serviceJourney").getJSONObject("line").getString("publicCode")
                     if (topLevelLineCode.isEmpty()) {
                         topLevelLineCode = lineCode

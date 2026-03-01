@@ -7,6 +7,7 @@ import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.launch
+import no.togavganger.data.LineInfo
 import no.togavganger.data.StationSearchResult
 import no.togavganger.data.TrainData
 import no.togavganger.data.preferences.StationPreferences
@@ -24,7 +25,16 @@ data class TrainUiState(
         val isSearching: Boolean = false,
         val searchQuery: String = "",
         val searchResults: List<StationSearchResult> = emptyList(),
-        val isSearchLoading: Boolean = false
+        val isSearchLoading: Boolean = false,
+        val showLineSelection: Boolean = false,
+        val availableLines: List<LineInfo> = emptyList(),
+        val isLoadingLines: Boolean = false,
+        val showDestinationSelection: Boolean = false,
+        val availableDestinations: List<String> = emptyList(),
+        val selectedDestinations: Set<String> = emptySet(),
+        val isLoadingDestinations: Boolean = false,
+        val selectedLineId: String? = null,
+        val selectedLinePublicCode: String? = null
 )
 
 sealed class TrainEvent {
@@ -37,6 +47,11 @@ sealed class TrainEvent {
     object ToggleSearch : TrainEvent()
     data class UpdateSearchQuery(val query: String) : TrainEvent()
     data class SelectSearchResult(val result: StationSearchResult) : TrainEvent()
+    object ShowLineSelection : TrainEvent()
+    object DismissLineSelection : TrainEvent()
+    data class SelectLine(val lineInfo: LineInfo) : TrainEvent()
+    data class ToggleDestination(val destination: String) : TrainEvent()
+    object ConfirmDestinations : TrainEvent()
 }
 
 class TrainViewModel(application: Application) : AndroidViewModel(application) {
@@ -46,7 +61,10 @@ class TrainViewModel(application: Application) : AndroidViewModel(application) {
     private val _uiState = MutableStateFlow(
         TrainUiState(
             selectedStationId = stationPreferences.getSelectedStationId(),
-            selectedStationName = stationPreferences.getSelectedStationName()
+            selectedStationName = stationPreferences.getSelectedStationName(),
+            selectedLineId = stationPreferences.getSelectedLineId(),
+            selectedLinePublicCode = stationPreferences.getSelectedLinePublicCode(),
+            selectedDestinations = stationPreferences.getSelectedDestinations().toSet()
         )
     )
     val uiState: StateFlow<TrainUiState> = _uiState.asStateFlow()
@@ -67,6 +85,11 @@ class TrainViewModel(application: Application) : AndroidViewModel(application) {
             is TrainEvent.ToggleSearch -> toggleSearch()
             is TrainEvent.UpdateSearchQuery -> updateSearchQuery(event.query)
             is TrainEvent.SelectSearchResult -> selectSearchResult(event.result)
+            is TrainEvent.ShowLineSelection -> showLineSelection()
+            is TrainEvent.DismissLineSelection -> dismissLineSelection()
+            is TrainEvent.SelectLine -> selectLine(event.lineInfo)
+            is TrainEvent.ToggleDestination -> toggleDestination(event.destination)
+            is TrainEvent.ConfirmDestinations -> confirmDestinations()
         }
     }
     private fun loadTrainData() {
@@ -76,7 +99,9 @@ class TrainViewModel(application: Application) : AndroidViewModel(application) {
                 return@launch
             }
             _uiState.value = _uiState.value.copy(isLoading = true, error = null)
-            val data = repository.fetchTrainData(selectedStationId)
+            val lineId = _uiState.value.selectedLineId
+            val destinations = _uiState.value.selectedDestinations.takeIf { it.isNotEmpty() }
+            val data = repository.fetchTrainData(selectedStationId, lineId, destinations)
             _uiState.value =
                     _uiState.value.copy(
                             trainData = data,
@@ -149,7 +174,9 @@ class TrainViewModel(application: Application) : AndroidViewModel(application) {
     private fun loadTrainDataWithStopPlaceId(stopPlaceId: String) {
         viewModelScope.launch {
             _uiState.value = _uiState.value.copy(isLoading = true, error = null)
-            val data = repository.fetchTrainData(stopPlaceId)
+            val lineId = _uiState.value.selectedLineId
+            val destinations = _uiState.value.selectedDestinations.takeIf { it.isNotEmpty() }
+            val data = repository.fetchTrainData(stopPlaceId, lineId, destinations)
             _uiState.value =
                     _uiState.value.copy(
                             trainData = data,
@@ -160,5 +187,52 @@ class TrainViewModel(application: Application) : AndroidViewModel(application) {
                                     else null
                     )
         }
+    }
+    private fun showLineSelection() {
+        _uiState.value = _uiState.value.copy(showLineSelection = true, isLoadingLines = true, availableLines = emptyList())
+        val stopPlaceId = _uiState.value.selectedStationId ?: return
+        viewModelScope.launch {
+            val lines = repository.fetchLines(stopPlaceId)
+            _uiState.value = _uiState.value.copy(availableLines = lines, isLoadingLines = false)
+        }
+    }
+    private fun dismissLineSelection() {
+        _uiState.value = _uiState.value.copy(showLineSelection = false, availableLines = emptyList(), isLoadingLines = false)
+    }
+    private fun selectLine(lineInfo: LineInfo) {
+        stationPreferences.setSelectedLine(lineInfo.id, lineInfo.publicCode)
+        _uiState.value = _uiState.value.copy(
+            showLineSelection = false,
+            availableLines = emptyList(),
+            selectedLineId = lineInfo.id,
+            selectedLinePublicCode = lineInfo.publicCode,
+            showDestinationSelection = true,
+            isLoadingDestinations = true,
+            availableDestinations = emptyList()
+        )
+        val stopPlaceId = _uiState.value.selectedStationId ?: return
+        viewModelScope.launch {
+            val destinations = repository.fetchDestinations(stopPlaceId, lineInfo.id)
+            _uiState.value = _uiState.value.copy(
+                availableDestinations = destinations,
+                selectedDestinations = destinations.toSet(),
+                isLoadingDestinations = false
+            )
+        }
+    }
+    private fun toggleDestination(destination: String) {
+        val current = _uiState.value.selectedDestinations
+        val next = if (destination in current) current - destination else current + destination
+        _uiState.value = _uiState.value.copy(selectedDestinations = next)
+    }
+    private fun confirmDestinations() {
+        val selected = _uiState.value.selectedDestinations
+        stationPreferences.setSelectedDestinations(selected)
+        _uiState.value = _uiState.value.copy(
+            showDestinationSelection = false,
+            availableDestinations = emptyList(),
+            selectedDestinations = selected
+        )
+        loadTrainData()
     }
 }
