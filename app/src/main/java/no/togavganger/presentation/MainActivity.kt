@@ -6,7 +6,6 @@ import android.os.Bundle
 import android.view.inputmethod.InputMethodManager
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
-import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.viewinterop.AndroidView
 import androidx.core.splashscreen.SplashScreen.Companion.installSplashScreen
 import android.widget.EditText
@@ -189,20 +188,18 @@ fun TrainDeparturesScreen(
     if (uiState.showSettings || uiState.selectedStationId == null) {
         SettingsScreen(
             selectedStation = uiState.selectedStationName,
+            recentStations = uiState.recentStations,
             isSearching = uiState.isSearching,
             searchQuery = uiState.searchQuery,
             searchResults = uiState.searchResults,
             isSearchLoading = uiState.isSearchLoading,
-            onStationSelected = { station -> viewModel.handleEvent(TrainEvent.SelectStation(station)) },
             onToggleSearch = { viewModel.handleEvent(TrainEvent.ToggleSearch) },
-            onSearchQueryChanged = { query -> viewModel.handleEvent(TrainEvent.UpdateSearchQuery(query)) },
-            onSearchResultSelected = { result -> viewModel.handleEvent(TrainEvent.SelectSearchResult(result)) },
-            onDismiss = { 
+            onStationSelected = { result -> viewModel.handleEvent(TrainEvent.SelectSearchResult(result)) },
+            onDismiss = {
                 if (uiState.selectedStationId != null) {
                     viewModel.handleEvent(TrainEvent.DismissSettings)
                 }
-            },
-            activity = activity
+            }
         )
         if (uiState.isSearching && activity != null) {
             SearchInputDialog(
@@ -211,8 +208,7 @@ fun TrainDeparturesScreen(
                 isSearchLoading = uiState.isSearchLoading,
                 onSearchQueryChanged = { query -> viewModel.handleEvent(TrainEvent.UpdateSearchQuery(query)) },
                 onSearchResultSelected = { result -> viewModel.handleEvent(TrainEvent.SelectSearchResult(result)) },
-                onDismiss = { viewModel.handleEvent(TrainEvent.ToggleSearch) },
-                activity = activity
+                onDismiss = { viewModel.handleEvent(TrainEvent.ToggleSearch) }
             )
         }
     } else if (uiState.showLineSelection) {
@@ -236,8 +232,7 @@ fun TrainDeparturesScreen(
                 searchQuery = uiState.destinationSearchQuery,
                 onSearchQueryChanged = { viewModel.handleEvent(TrainEvent.UpdateDestinationSearchQuery(it)) },
                 onAddDestination = { viewModel.handleEvent(TrainEvent.AddCustomDestination(it)) },
-                onDismiss = { viewModel.handleEvent(TrainEvent.DismissDestinationSearch) },
-                activity = activity
+                onDismiss = { viewModel.handleEvent(TrainEvent.DismissDestinationSearch) }
             )
         }
     } else {
@@ -398,7 +393,7 @@ fun TrainListContent(
                         )
                     ) {
                         Text(
-                            text = "Linjer",
+                            text = "Velg Linjer",
                             style = MaterialTheme.typography.title3,
                             color = getOnSurfaceColor()
                         )
@@ -862,8 +857,7 @@ fun DestinationSearchDialog(
     searchQuery: String,
     onSearchQueryChanged: (String) -> Unit,
     onAddDestination: (String) -> Unit,
-    onDismiss: () -> Unit,
-    activity: ComponentActivity?
+    onDismiss: () -> Unit
 ) {
     Dialog(
         showDialog = true,
@@ -972,19 +966,16 @@ fun DestinationSearchDialog(
 @Composable
 fun SettingsScreen(
     selectedStation: String?,
+    recentStations: List<no.togavganger.data.StationSearchResult>,
     isSearching: Boolean,
     searchQuery: String,
     searchResults: List<no.togavganger.data.StationSearchResult>,
     isSearchLoading: Boolean,
-    onStationSelected: (String) -> Unit,
     onToggleSearch: () -> Unit,
-    onSearchQueryChanged: (String) -> Unit,
-    onSearchResultSelected: (no.togavganger.data.StationSearchResult) -> Unit,
-    onDismiss: () -> Unit,
-    activity: ComponentActivity?
+    onStationSelected: (no.togavganger.data.StationSearchResult) -> Unit,
+    onDismiss: () -> Unit
 ) {
     val scrollState = rememberTransformingLazyColumnState()
-    val stations = listOf("Haugensua stasjon", "Grorud stasjon")
     ScreenScaffold(
         scrollState = scrollState,
         edgeButton = {
@@ -1098,7 +1089,7 @@ fun SettingsScreen(
                                     .padding(horizontal = 4.dp)
                             ) {
                                 Button(
-                                    onClick = { onSearchResultSelected(result) },
+                                    onClick = { onStationSelected(result) },
                                     modifier = Modifier
                                         .fillMaxWidth()
                                         .height(38.dp),
@@ -1129,7 +1120,7 @@ fun SettingsScreen(
                 }
             }
             if (!isSearching) {
-                stations.forEach { station ->
+                recentStations.forEach { station ->
                     item {
                         Box(
                             modifier = Modifier
@@ -1141,7 +1132,7 @@ fun SettingsScreen(
                                 modifier = Modifier
                                     .fillMaxWidth()
                                     .height(38.dp),
-                                colors = if (station == selectedStation) {
+                                colors = if (station.name == selectedStation) {
                                     ButtonDefaults.primaryButtonColors(
                                         backgroundColor = MaterialTheme.colors.primary,
                                         contentColor = MaterialTheme.colors.onPrimary
@@ -1154,9 +1145,9 @@ fun SettingsScreen(
                                 }
                             ) {
                                 Text(
-                                    text = station,
+                                    text = station.name,
                                     style = MaterialTheme.typography.title3,
-                                    color = if (station == selectedStation) {
+                                    color = if (station.name == selectedStation) {
                                         MaterialTheme.colors.onPrimary
                                     } else {
                                         getOnSurfaceColor()
@@ -1178,10 +1169,8 @@ fun SearchInputDialog(
     isSearchLoading: Boolean,
     onSearchQueryChanged: (String) -> Unit,
     onSearchResultSelected: (no.togavganger.data.StationSearchResult) -> Unit,
-    onDismiss: () -> Unit,
-    activity: ComponentActivity
+    onDismiss: () -> Unit
 ) {
-    val context = LocalContext.current
     var editText: EditText? by remember { mutableStateOf(null) }
     Dialog(
         showDialog = true,

@@ -36,7 +36,8 @@ data class TrainUiState(
         val selectedLineId: String? = null,
         val selectedLinePublicCode: String? = null,
         val showDestinationSearch: Boolean = false,
-        val destinationSearchQuery: String = ""
+        val destinationSearchQuery: String = "",
+        val recentStations: List<StationSearchResult> = emptyList()
 )
 
 sealed class TrainEvent {
@@ -45,7 +46,6 @@ sealed class TrainEvent {
     object DismissDetails : TrainEvent()
     object ShowSettings : TrainEvent()
     object DismissSettings : TrainEvent()
-    data class SelectStation(val station: String) : TrainEvent()
     object ToggleSearch : TrainEvent()
     data class UpdateSearchQuery(val query: String) : TrainEvent()
     data class SelectSearchResult(val result: StationSearchResult) : TrainEvent()
@@ -87,7 +87,6 @@ class TrainViewModel(application: Application) : AndroidViewModel(application) {
             is TrainEvent.DismissDetails -> dismissDetails()
             is TrainEvent.ShowSettings -> showSettings()
             is TrainEvent.DismissSettings -> dismissSettings()
-            is TrainEvent.SelectStation -> selectStation(event.station)
             is TrainEvent.ToggleSearch -> toggleSearch()
             is TrainEvent.UpdateSearchQuery -> updateSearchQuery(event.query)
             is TrainEvent.SelectSearchResult -> selectSearchResult(event.result)
@@ -130,20 +129,11 @@ class TrainViewModel(application: Application) : AndroidViewModel(application) {
         _uiState.value = _uiState.value.copy(selectedDepartureIndex = null)
     }
     private fun showSettings() {
-        _uiState.value = _uiState.value.copy(showSettings = true)
+        val recent = stationPreferences.getRecentStations().map { StationSearchResult(it.first, it.second) }
+        _uiState.value = _uiState.value.copy(showSettings = true, recentStations = recent)
     }
     private fun dismissSettings() {
         _uiState.value = _uiState.value.copy(showSettings = false)
-    }
-    private fun selectStation(station: String) {
-        val stopPlaceId = when (station) {
-            "Haugensua stasjon" -> "NSR:StopPlace:59653"
-            "Grorud stasjon" -> "NSR:StopPlace:59620"
-            else -> return
-        }
-        stationPreferences.setSelectedStation(stopPlaceId, station)
-        _uiState.value = _uiState.value.copy(selectedStationId = stopPlaceId, selectedStationName = station, showSettings = false)
-        loadTrainData()
     }
     private fun toggleSearch() {
         val isSearching = _uiState.value.isSearching
@@ -171,13 +161,16 @@ class TrainViewModel(application: Application) : AndroidViewModel(application) {
     private fun selectSearchResult(result: StationSearchResult) {
         val stopPlaceId = result.id
         stationPreferences.setSelectedStation(stopPlaceId, result.name)
+        stationPreferences.addStationToRecent(stopPlaceId, result.name)
+        val recent = stationPreferences.getRecentStations().map { StationSearchResult(it.first, it.second) }
         _uiState.value = _uiState.value.copy(
             selectedStationId = stopPlaceId,
             selectedStationName = result.name,
             showSettings = false,
             isSearching = false,
             searchQuery = "",
-            searchResults = emptyList()
+            searchResults = emptyList(),
+            recentStations = recent
         )
         loadTrainDataWithStopPlaceId(stopPlaceId)
     }

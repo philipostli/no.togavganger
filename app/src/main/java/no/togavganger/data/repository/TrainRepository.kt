@@ -21,7 +21,7 @@ class TrainRepository {
                   stopPlace(id: "$stopPlaceId") {
                     name
                     estimatedCalls(
-                        numberOfDepartures: 20
+                        numberOfDepartures: 30
                         whiteListedModes: [rail]
                         includeCancelledTrips: true
                     ) {

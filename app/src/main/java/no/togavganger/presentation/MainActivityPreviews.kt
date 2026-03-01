@@ -145,16 +145,14 @@ fun SettingsScreenNoSelectionPreview() {
     TogavgangerTheme {
         SettingsScreen(
             selectedStation = null,
+            recentStations = emptyList(),
             isSearching = false,
             searchQuery = "",
             searchResults = emptyList(),
             isSearchLoading = false,
-            onStationSelected = {},
             onToggleSearch = {},
-            onSearchQueryChanged = {},
-            onSearchResultSelected = {},
-            onDismiss = {},
-            activity = null
+            onStationSelected = {},
+            onDismiss = {}
         )
     }
 }
@@ -165,17 +163,18 @@ fun SettingsScreenNoSelectionPreview() {
 fun SettingsScreenWithSelectionPreview() {
     TogavgangerTheme {
         SettingsScreen(
-            selectedStation = "Haugensua stasjon",
+            selectedStation = "Haugenstua stasjon",
+            recentStations = listOf(
+                StationSearchResult("NSR:StopPlace:59653", "Haugenstua stasjon"),
+                StationSearchResult("NSR:StopPlace:59620", "Grorud stasjon")
+            ),
             isSearching = false,
             searchQuery = "",
             searchResults = emptyList(),
             isSearchLoading = false,
-            onStationSelected = {},
             onToggleSearch = {},
-            onSearchQueryChanged = {},
-            onSearchResultSelected = {},
-            onDismiss = {},
-            activity = null
+            onStationSelected = {},
+            onDismiss = {}
         )
     }
 }
@@ -187,6 +186,7 @@ fun SettingsScreenSearchResultsPreview() {
     TogavgangerTheme {
         SettingsScreen(
             selectedStation = null,
+            recentStations = emptyList(),
             isSearching = true,
             searchQuery = "Haugen",
             searchResults = listOf(
@@ -195,12 +195,9 @@ fun SettingsScreenSearchResultsPreview() {
                 StationSearchResult("NSR:StopPlace:12345", "Haugenstua torg")
             ),
             isSearchLoading = false,
-            onStationSelected = {},
             onToggleSearch = {},
-            onSearchQueryChanged = {},
-            onSearchResultSelected = {},
-            onDismiss = {},
-            activity = null
+            onStationSelected = {},
+            onDismiss = {}
         )
     }
 }
