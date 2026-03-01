@@ -34,7 +34,9 @@ data class TrainUiState(
         val selectedDestinations: Set<String> = emptySet(),
         val isLoadingDestinations: Boolean = false,
         val selectedLineId: String? = null,
-        val selectedLinePublicCode: String? = null
+        val selectedLinePublicCode: String? = null,
+        val showDestinationSearch: Boolean = false,
+        val destinationSearchQuery: String = ""
 )
 
 sealed class TrainEvent {
@@ -52,6 +54,10 @@ sealed class TrainEvent {
     data class SelectLine(val lineInfo: LineInfo) : TrainEvent()
     data class ToggleDestination(val destination: String) : TrainEvent()
     object ConfirmDestinations : TrainEvent()
+    object ShowDestinationSearch : TrainEvent()
+    object DismissDestinationSearch : TrainEvent()
+    data class UpdateDestinationSearchQuery(val query: String) : TrainEvent()
+    data class AddCustomDestination(val destination: String) : TrainEvent()
 }
 
 class TrainViewModel(application: Application) : AndroidViewModel(application) {
@@ -90,6 +96,10 @@ class TrainViewModel(application: Application) : AndroidViewModel(application) {
             is TrainEvent.SelectLine -> selectLine(event.lineInfo)
             is TrainEvent.ToggleDestination -> toggleDestination(event.destination)
             is TrainEvent.ConfirmDestinations -> confirmDestinations()
+            is TrainEvent.ShowDestinationSearch -> showDestinationSearch()
+            is TrainEvent.DismissDestinationSearch -> dismissDestinationSearch()
+            is TrainEvent.UpdateDestinationSearchQuery -> updateDestinationSearchQuery(event.query)
+            is TrainEvent.AddCustomDestination -> addCustomDestination(event.destination)
         }
     }
     private fun loadTrainData() {
@@ -234,5 +244,27 @@ class TrainViewModel(application: Application) : AndroidViewModel(application) {
             selectedDestinations = selected
         )
         loadTrainData()
+    }
+    private fun showDestinationSearch() {
+        _uiState.value = _uiState.value.copy(showDestinationSearch = true, destinationSearchQuery = "")
+    }
+    private fun dismissDestinationSearch() {
+        _uiState.value = _uiState.value.copy(showDestinationSearch = false, destinationSearchQuery = "")
+    }
+    private fun updateDestinationSearchQuery(query: String) {
+        _uiState.value = _uiState.value.copy(destinationSearchQuery = query)
+    }
+    private fun addCustomDestination(destination: String) {
+        val trimmed = destination.trim()
+        if (trimmed.isEmpty()) return
+        val updated = _uiState.value.selectedDestinations + trimmed
+        val dests = _uiState.value.availableDestinations
+        val newDests = if (trimmed in dests) dests else dests + trimmed
+        _uiState.value = _uiState.value.copy(
+            selectedDestinations = updated,
+            showDestinationSearch = false,
+            destinationSearchQuery = "",
+            availableDestinations = newDests
+        )
     }
 }

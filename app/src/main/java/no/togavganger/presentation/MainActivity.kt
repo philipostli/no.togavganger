@@ -228,8 +228,18 @@ fun TrainDeparturesScreen(
             selectedDestinations = uiState.selectedDestinations,
             isLoadingDestinations = uiState.isLoadingDestinations,
             onToggleDestination = { dest -> viewModel.handleEvent(TrainEvent.ToggleDestination(dest)) },
-            onConfirm = { viewModel.handleEvent(TrainEvent.ConfirmDestinations) }
+            onConfirm = { viewModel.handleEvent(TrainEvent.ConfirmDestinations) },
+            onSearchClick = { viewModel.handleEvent(TrainEvent.ShowDestinationSearch) }
         )
+        if (uiState.showDestinationSearch) {
+            DestinationSearchDialog(
+                searchQuery = uiState.destinationSearchQuery,
+                onSearchQueryChanged = { viewModel.handleEvent(TrainEvent.UpdateDestinationSearchQuery(it)) },
+                onAddDestination = { viewModel.handleEvent(TrainEvent.AddCustomDestination(it)) },
+                onDismiss = { viewModel.handleEvent(TrainEvent.DismissDestinationSearch) },
+                activity = activity
+            )
+        }
     } else {
     when {
         uiState.isLoading -> {
@@ -704,7 +714,8 @@ fun DestinationSelectionScreen(
     selectedDestinations: Set<String>,
     isLoadingDestinations: Boolean,
     onToggleDestination: (String) -> Unit,
-    onConfirm: () -> Unit
+    onConfirm: () -> Unit,
+    onSearchClick: () -> Unit = {}
 ) {
     val scrollState = rememberTransformingLazyColumnState()
     ScreenScaffold(
@@ -742,6 +753,45 @@ fun DestinationSelectionScreen(
             }
             item {
                 Spacer(modifier = Modifier.height(8.dp))
+            }
+            item {
+                Box(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(horizontal = 4.dp)
+                ) {
+                    Button(
+                        onClick = onSearchClick,
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .height(38.dp),
+                        colors = ButtonDefaults.secondaryButtonColors(
+                            backgroundColor = getSurfaceContainerColor(),
+                            contentColor = getOnSurfaceColor()
+                        )
+                    ) {
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            horizontalArrangement = Arrangement.Center,
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            Text(
+                                text = "⌛",
+                                style = MaterialTheme.typography.title3,
+                                color = getOnSurfaceColor()
+                            )
+                            Spacer(modifier = Modifier.width(8.dp))
+                            Text(
+                                text = "Søk",
+                                style = MaterialTheme.typography.title3,
+                                color = getOnSurfaceColor()
+                            )
+                        }
+                    }
+                }
+            }
+            item {
+                Spacer(modifier = Modifier.height(4.dp))
             }
             if (isLoadingDestinations) {
                 item {
@@ -799,6 +849,118 @@ fun DestinationSelectionScreen(
                                     }
                                 }
                             }
+                        }
+                    }
+                }
+            }
+        }
+    }
+}
+
+@Composable
+fun DestinationSearchDialog(
+    searchQuery: String,
+    onSearchQueryChanged: (String) -> Unit,
+    onAddDestination: (String) -> Unit,
+    onDismiss: () -> Unit,
+    activity: ComponentActivity?
+) {
+    Dialog(
+        showDialog = true,
+        onDismissRequest = onDismiss
+    ) {
+        val scrollState = rememberTransformingLazyColumnState()
+        ScreenScaffold(
+            scrollState = scrollState,
+            edgeButton = {
+                EdgeButton(
+                    onClick = onDismiss,
+                    buttonSize = EdgeButtonSize.ExtraSmall
+                ) {
+                    Text("Lukk")
+                }
+            },
+            contentPadding = PaddingValues(
+                start = 14.dp,
+                end = 14.dp,
+                top = 14.dp,
+                bottom = 45.dp
+            )
+        ) { contentPadding ->
+            TransformingLazyColumn(
+                state = scrollState,
+                contentPadding = contentPadding,
+                modifier = Modifier.fillMaxSize()
+            ) {
+                item {
+                    ListHeader {
+                        Text(
+                            text = "Skriv inn destinasjon",
+                            style = MaterialTheme.typography.title3,
+                            textAlign = TextAlign.Center,
+                            modifier = Modifier.fillMaxWidth()
+                        )
+                    }
+                }
+                item {
+                    Spacer(modifier = Modifier.height(8.dp))
+                }
+                item {
+                    AndroidView(
+                        factory = { ctx ->
+                            EditText(ctx).apply {
+                                hint = "F.eks. Oslo S, Spikkestad..."
+                                setText(searchQuery)
+                                setSingleLine(true)
+                                requestFocus()
+                                post {
+                                    val imm = ctx.getSystemService(android.content.Context.INPUT_METHOD_SERVICE) as InputMethodManager
+                                    imm.showSoftInput(this, InputMethodManager.SHOW_IMPLICIT)
+                                }
+                                addTextChangedListener(object : android.text.TextWatcher {
+                                    override fun beforeTextChanged(s: CharSequence?, start: Int, count: Int, after: Int) {}
+                                    override fun onTextChanged(s: CharSequence?, start: Int, before: Int, count: Int) {
+                                        onSearchQueryChanged(s?.toString() ?: "")
+                                    }
+                                    override fun afterTextChanged(s: android.text.Editable?) {}
+                                })
+                            }
+                        },
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .height(40.dp)
+                            .padding(horizontal = 4.dp)
+                    )
+                }
+                item {
+                    Spacer(modifier = Modifier.height(8.dp))
+                }
+                item {
+                    Box(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(horizontal = 4.dp)
+                    ) {
+                        Button(
+                            onClick = {
+                                val dest = searchQuery.trim()
+                                if (dest.isNotEmpty()) {
+                                    onAddDestination(dest)
+                                }
+                            },
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .height(38.dp),
+                            colors = ButtonDefaults.primaryButtonColors(
+                                backgroundColor = MaterialTheme.colors.primary,
+                                contentColor = MaterialTheme.colors.onPrimary
+                            )
+                        ) {
+                            Text(
+                                text = "Legg til",
+                                style = MaterialTheme.typography.title3,
+                                color = MaterialTheme.colors.onPrimary
+                            )
                         }
                     }
                 }
