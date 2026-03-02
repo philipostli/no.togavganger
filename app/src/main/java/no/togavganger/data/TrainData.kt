@@ -14,5 +14,6 @@ data class Departure(
     val aimedTime: String,
     val expectedTime: String,
     val isDelayed: Boolean,
-    val platformCode: String? = null
+    val platformCode: String? = null,
+    val summary: String? = null
 )

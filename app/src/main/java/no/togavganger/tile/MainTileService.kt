@@ -148,6 +148,16 @@ fun tileLayout(
                                         LayoutElementBuilders.Row.Builder()
                                             .setVerticalAlignment(LayoutElementBuilders.VERTICAL_ALIGN_CENTER)
                                             .apply {
+                                                if (!departure.summary.isNullOrBlank()) {
+                                                    addContent(
+                                                        text(
+                                                            "⚠".layoutString,
+                                                            typography = Typography.TITLE_SMALL,
+                                                            color = if (departure.isDelayed) colorScheme.onTertiaryContainer else colorScheme.primary
+                                                        )
+                                                    )
+                                                    addContent(LayoutElementBuilders.Spacer.Builder().setWidth(dp(4f)).build())
+                                                }
                                                 addContent(
                                                     text(
                                                         departure.destination.layoutString,
@@ -204,16 +214,16 @@ fun tileLayout(
     )
 }
 
-@Preview(device = WearDevices.LARGE_ROUND, name = "Large Round")
 @Preview(device = WearDevices.SMALL_ROUND, name = "Small Round")
+@Preview(device = WearDevices.LARGE_ROUND, name = "Large Round")
 internal fun trainTilePreview(context: Context): TilePreviewData {
     val mockData = TrainData(
         "Haugenstua stasjon",
         "L1",
         listOf(
-            no.togavganger.data.Departure("Spikkestad", "21:55", "21:56", true, "1"),
+            no.togavganger.data.Departure("Spikkestad", "21:55", "21:56", true, "1", "Færre vogner"),
             no.togavganger.data.Departure("Oslo S", "22:10", "22:10", false, "2"),
-            no.togavganger.data.Departure("Asker", "22:25", "22:25", false, "3")
+            no.togavganger.data.Departure("Asker", "22:25", "22:25", false, "3", "Vedlikehold")
         )
     )
     return TilePreviewData(

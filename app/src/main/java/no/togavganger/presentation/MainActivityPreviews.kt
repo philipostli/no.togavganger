@@ -37,7 +37,8 @@ fun TrainListSuccessPreview() {
                             "22:10",
                             "22:10",
                             false,
-                            "2"
+                            "2",
+                            "Buss erstatter tog"
                         ),
                         Departure(
                             "Asker",
@@ -107,6 +108,67 @@ fun DepartureDetailsDialogPreview() {
             aimedTime = "22:10",
             expectedTime = "22:12",
             isDelayed = true,
+            platformCode = "2"
+        )
+        DepartureDetailsDialog(
+            departure = mockDeparture,
+            stopName = "Haugenstua stasjon",
+            lineCode = "L1",
+            stopPlaceId = "NSR:StopPlace:59653",
+            activity = null,
+            onDismiss = {}
+        )
+    }
+}
+@Preview(
+    device = WearDevices.SMALL_ROUND,
+    showSystemUi = true,
+    name = "Departure Details Dialog (Small)"
+)
+@Preview(
+    device = WearDevices.LARGE_ROUND,
+    showSystemUi = true,
+    name = "Departure Details Dialog (Large)"
+)
+@Composable
+fun DepartureDetailsDialogPreview2() {
+    TogavgangerTheme {
+        val mockDeparture = Departure(
+            destination = "Oslo S",
+            aimedTime = "22:10",
+            expectedTime = "22:10",
+            isDelayed = false,
+            platformCode = "2",
+            summary = "Buss erstatter tog"
+        )
+        DepartureDetailsDialog(
+            departure = mockDeparture,
+            stopName = "Haugenstua stasjon",
+            lineCode = "L1",
+            stopPlaceId = "NSR:StopPlace:59653",
+            activity = null,
+            onDismiss = {}
+        )
+    }
+}
+@Preview(
+    device = WearDevices.SMALL_ROUND,
+    showSystemUi = true,
+    name = "Departure Details Dialog (Small)"
+)
+@Preview(
+    device = WearDevices.LARGE_ROUND,
+    showSystemUi = true,
+    name = "Departure Details Dialog (Large)"
+)
+@Composable
+fun DepartureDetailsDialogPreview3() {
+    TogavgangerTheme {
+        val mockDeparture = Departure(
+            destination = "Oslo S",
+            aimedTime = "22:10",
+            expectedTime = "22:10",
+            isDelayed = false,
             platformCode = "2"
         )
         DepartureDetailsDialog(

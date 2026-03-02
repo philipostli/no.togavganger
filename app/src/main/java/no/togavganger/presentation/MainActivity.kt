@@ -13,6 +13,7 @@ import androidx.wear.tiles.TileService
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
@@ -444,15 +445,28 @@ fun DepartureCard(
             horizontalArrangement = Arrangement.SpaceBetween,
             verticalAlignment = Alignment.CenterVertically
         ) {
-            Text(
-                text = departure.destination,
-                style = MaterialTheme.typography.title3,
-                color = if (departure.isDelayed) {
-                    getOnTertiaryContainerColor()
-                } else {
-                    getOnSurfaceColor()
+            Row(
+                verticalAlignment = Alignment.CenterVertically,
+                modifier = Modifier.weight(1f)
+            ) {
+                if (!departure.summary.isNullOrBlank()) {
+                    Text(
+                        text = "⚠",
+                        style = MaterialTheme.typography.title3,
+                        color = if (departure.isDelayed) getOnTertiaryContainerColor() else Color(0xFFFFB300),
+                        modifier = Modifier.padding(end = 6.dp)
+                    )
                 }
-            )
+                Text(
+                    text = departure.destination,
+                    style = MaterialTheme.typography.title3,
+                    color = if (departure.isDelayed) {
+                        getOnTertiaryContainerColor()
+                    } else {
+                        getOnSurfaceColor()
+                    }
+                )
+            }
             Spacer(modifier = Modifier.width(8.dp))
             if (departure.isDelayed) {
                 Text(
@@ -507,18 +521,20 @@ fun DepartureDetailsDialog(
                 contentPadding = contentPadding,
                 modifier = Modifier.fillMaxSize()
             ) {
-                item {
-                    ListHeader {
+                if (!departure.summary.isNullOrBlank()) {
+                    item {
                         Text(
-                            text = departure.destination,
-                            style = MaterialTheme.typography.title3,
-                            textAlign = TextAlign.Center,
-                            modifier = Modifier.fillMaxWidth()
+                            text = "⚠",
+                            style = MaterialTheme.typography.title2,
+                            color = Color(0xFFFFB300),
+                            modifier = Modifier.fillMaxWidth(),
+                            textAlign = TextAlign.Center
                         )
                     }
-                }
-                item {
-                    Spacer(modifier = Modifier.height(8.dp))
+                }else{
+                    item {
+                        Spacer(modifier = Modifier.height(8.dp))
+                    }
                 }
                 item {
                     Text(
@@ -534,7 +550,7 @@ fun DepartureDetailsDialog(
                 }
                 item {
                     Text(
-                        text = "Linje: $lineCode",
+                        text = "$lineCode - ${departure.destination}",
                         style = MaterialTheme.typography.body1,
                         color = MaterialTheme.colors.onSurface,
                         modifier = Modifier.fillMaxWidth(),
@@ -547,7 +563,7 @@ fun DepartureDetailsDialog(
                     }
                     item {
                         Text(
-                            text = "Plattform: ${departure.platformCode}",
+                            text = "Plattform ${departure.platformCode}",
                             style = MaterialTheme.typography.body1,
                             color = MaterialTheme.colors.onSurface,
                             modifier = Modifier.fillMaxWidth(),
@@ -572,10 +588,49 @@ fun DepartureDetailsDialog(
                         Text(
                             text = "Forventet: ${departure.expectedTime}",
                             style = MaterialTheme.typography.body2,
-                            color = Color(0xFF64B5F6),
+                            color = Color(0xFF64B5F6), //blue color
                             modifier = Modifier.fillMaxWidth(),
                             textAlign = TextAlign.Center
                         )
+                    }
+                }else{
+                    item {
+                        Spacer(modifier = Modifier.height(2.dp))
+                    }
+                    item {
+                        Text(
+                            text = "I rute",
+                            style = MaterialTheme.typography.body2,
+                            color = Color(0xFF00FF55), //light green color
+                            modifier = Modifier.fillMaxWidth(),
+                            textAlign = TextAlign.Center
+                        )
+                    }
+                }
+                if (!departure.summary.isNullOrBlank()) {
+                    item {
+                        Spacer(modifier = Modifier.height(8.dp))
+                    }
+                    item {
+                        Column(
+                            modifier = Modifier.fillMaxWidth(),
+                            horizontalAlignment = Alignment.CenterHorizontally
+                        ) {
+                            Text(
+                                text = "Avvik:",
+                                style = MaterialTheme.typography.body2,
+                                color = MaterialTheme.colors.error,
+                                modifier = Modifier.fillMaxWidth(),
+                                textAlign = TextAlign.Center
+                            )
+                            Text(
+                                text = departure.summary,
+                                style = MaterialTheme.typography.body2,
+                                color = MaterialTheme.colors.onSurfaceVariant,
+                                modifier = Modifier.fillMaxWidth(),
+                                textAlign = TextAlign.Center
+                            )
+                        }
                     }
                 }
                 if (stopPlaceId != null) {

@@ -106,6 +106,23 @@ class TrainRepository {
         }
     }
 
+    private fun parseNorwegianSummary(call: JSONObject): String? {
+        val situations = call.optJSONArray("situations") ?: return null
+        val values = mutableListOf<String>()
+        for (i in 0 until situations.length()) {
+            val summaries = situations.getJSONObject(i).optJSONArray("summary")
+            if (summaries == null) continue
+            for (j in 0 until summaries.length()) {
+                val s = summaries.getJSONObject(j)
+                if (s.optString("language") == "no") {
+                    val value = s.optString("value", "").trim()
+                    if (value.isNotEmpty()) values.add(value)
+                }
+            }
+        }
+        return values.distinct().joinToString("\n").takeIf { it.isNotEmpty() }
+    }
+
     private fun executeGraphQL(query: String): JSONObject? {
         val url = URL("https://api.entur.io/journey-planner/v3/graphql")
         val connection = url.openConnection() as HttpURLConnection
@@ -141,6 +158,17 @@ class TrainRepository {
                         }
                         quay {
                             publicCode
+                        }                       
+                        situations {
+                            id
+                            description {
+                                value
+                                language
+                            }
+                            summary {
+                                value
+                                language
+                            }
                         }
                         serviceJourney {
                             line {
@@ -180,7 +208,8 @@ class TrainRepository {
                         .isAfter(aimedDateTime.truncatedTo(ChronoUnit.MINUTES))
                     val aimedTime = aimedDateTime.format(timeFormatter)
                     val expectedTime = expectedDateTime.format(timeFormatter)
-                    departures.add(Departure(dest, aimedTime, expectedTime, isDelayed, platformCode))
+                    val summary = parseNorwegianSummary(call)
+                    departures.add(Departure(dest, aimedTime, expectedTime, isDelayed, platformCode, summary))
                 }
                 TrainData(stopName, topLevelLineCode, departures)
             } catch (e: Exception) {
