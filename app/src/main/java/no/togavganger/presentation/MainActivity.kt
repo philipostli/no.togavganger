@@ -26,6 +26,7 @@ import androidx.wear.compose.foundation.lazy.TransformingLazyColumn
 import androidx.wear.compose.foundation.lazy.rememberTransformingLazyColumnState
 import androidx.wear.compose.material3.ScreenScaffold
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -63,10 +64,14 @@ class MainActivity : ComponentActivity() {
         installSplashScreen()
         super.onCreate(savedInstanceState)
         setTheme(android.R.style.Theme_DeviceDefault)
+        val departureIndex = intent?.getIntExtra("departure_index", -1)
+            ?.takeIf { it >= 0 }
         setContent {
             TogavgangerTheme {
-                TrainDeparturesScreen(activity = this)
-                // TestScreen("Android", { })
+                TrainDeparturesScreen(
+                    activity = this,
+                    initialDepartureIndex = departureIndex
+                )
             }
         }
     }
@@ -181,8 +186,14 @@ fun TrainDeparturesScreenError(
 @Composable
 fun TrainDeparturesScreen(
     viewModel: TrainViewModel = viewModel(),
-    activity: ComponentActivity? = null
+    activity: ComponentActivity? = null,
+    initialDepartureIndex: Int? = null
 ) {
+    LaunchedEffect(Unit) {
+        if (initialDepartureIndex != null) {
+            viewModel.handleEvent(TrainEvent.SelectDeparture(initialDepartureIndex))
+        }
+    }
     val uiState by viewModel.uiState.collectAsState()
     val scrollState = rememberTransformingLazyColumnState()
     if (uiState.showSettings || uiState.selectedStationId == null) {

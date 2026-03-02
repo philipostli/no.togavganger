@@ -129,9 +129,20 @@ fun tileLayout(
                                 button(
                                     onClick = androidx.wear.protolayout.modifiers.clickable(
                                         id = "go_${departure.destination}_${departure.aimedTime}_$index",
-                                        action = androidx.wear.protolayout.ActionBuilders.launchAction(
-                                            android.content.ComponentName(context.packageName, "no.togavganger.presentation.MainActivity")
-                                        )
+                                        action = androidx.wear.protolayout.ActionBuilders.LaunchAction.Builder()
+                                            .setAndroidActivity(
+                                                androidx.wear.protolayout.ActionBuilders.AndroidActivity.Builder()
+                                                    .setClassName("no.togavganger.presentation.MainActivity")
+                                                    .setPackageName(context.packageName)
+                                                    .addKeyToExtraMapping(
+                                                        "departure_index",
+                                                        androidx.wear.protolayout.ActionBuilders.AndroidIntExtra.Builder()
+                                                            .setValue(index)
+                                                            .build()
+                                                    )
+                                                    .build()
+                                            )
+                                            .build()
                                     ),
                                     labelContent = {
                                         LayoutElementBuilders.Row.Builder()
