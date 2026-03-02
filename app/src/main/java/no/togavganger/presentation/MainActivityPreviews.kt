@@ -184,24 +184,6 @@ fun DepartureDetailsDialogPreview3() {
     }
 }
 
-// @Preview(device = WearDevices.SMALL_ROUND, showSystemUi = true)
-@Composable
-fun DefaultPreview() {
-    TogavgangerTheme {
-        TrainDeparturesScreen()
-        // TestScreen("Android",  {} )
-    }
-}
-
-//@Preview(device = WearDevices.SMALL_ROUND, showSystemUi = true, name = "Train List - Loading (Small)")
-//@Preview(device = WearDevices.LARGE_ROUND, showSystemUi = true, name = "Train List - Loading (Large)")
-@Composable
-fun TrainListLoadingPreview() {
-    TogavgangerTheme {
-        TrainDeparturesScreen()
-    }
-}
-
 @Preview(device = WearDevices.SMALL_ROUND, showSystemUi = true, name = "Settings Screen - No Selection (Small)")
 @Preview(device = WearDevices.LARGE_ROUND, showSystemUi = true, name = "Settings Screen - No Selection (Large)")
 @Composable

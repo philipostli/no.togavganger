@@ -103,10 +103,7 @@ class TrainViewModel(application: Application) : AndroidViewModel(application) {
     }
     private fun loadTrainData() {
         viewModelScope.launch {
-            val selectedStationId = _uiState.value.selectedStationId
-            if (selectedStationId == null) {
-                return@launch
-            }
+            val selectedStationId = _uiState.value.selectedStationId ?: return@launch
             _uiState.value = _uiState.value.copy(isLoading = true, error = null)
             val lineId = _uiState.value.selectedLineId
             val destinations = _uiState.value.selectedDestinations.takeIf { it.isNotEmpty() }

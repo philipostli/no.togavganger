@@ -1,7 +1,6 @@
 package no.togavganger.presentation
 
 import android.content.Intent
-import android.net.Uri
 import android.os.Bundle
 import android.view.inputmethod.InputMethodManager
 import androidx.activity.ComponentActivity
@@ -30,9 +29,6 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
-import androidx.compose.runtime.mutableStateOf
-import androidx.compose.runtime.remember
-import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalConfiguration
@@ -59,6 +55,8 @@ import no.togavganger.presentation.theme.getSurfaceContainerColor
 import no.togavganger.presentation.theme.getOnSurfaceColor
 import no.togavganger.presentation.viewmodel.TrainEvent
 import no.togavganger.presentation.viewmodel.TrainViewModel
+import androidx.core.net.toUri
+import androidx.core.graphics.toColorInt
 
 class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -79,60 +77,6 @@ class MainActivity : ComponentActivity() {
     override fun onPause() {
         super.onPause()
         TileService.getUpdater(this).requestUpdate(MainTileService::class.java)
-    }
-}
-
-@Composable
-fun TestScreen(
-    onShowList: () -> Unit
-) {
-    val scrollState = rememberTransformingLazyColumnState()
-
-    /* If you have enough items in your list, use [TransformingLazyColumn] which is an optimized
-     * version of LazyColumn for wear devices with some added features. For more information,
-     * see d.android.com/wear/compose.
-     */
-    ScreenScaffold(
-        scrollState = scrollState,
-        edgeButton = {
-            EdgeButton(
-                onClick = onShowList,
-                buttonSize = EdgeButtonSize.ExtraSmall
-            ) {
-                Text("Button text")
-            }
-        },
-        // The bottom padding value is always ignored when using EdgeButton because this button is
-        // always placed at the end of the screen.
-        // The `ScreenScaffold` parameter `edgeButtonSpacing` can be used to specify the
-        // gap between edgeButton and content.
-        contentPadding = PaddingValues(
-            start = 14.dp,
-            end = 14.dp,
-            top = 14.dp,
-            bottom = 45.dp
-        )
-    ) { contentPadding ->
-        // Use workaround from Horologist for padding or wait until fix lands
-        TransformingLazyColumn(
-            state = scrollState,
-            contentPadding = contentPadding
-        ) {
-            item { Greeting(modifier = Modifier.fillMaxSize()) }
-        }
-    }
-}
-
-@Composable
-fun Greeting(
-    modifier: Modifier = Modifier
-) {
-    ListHeader {
-        Text(
-            modifier = modifier.fillMaxWidth(),
-            textAlign = TextAlign.Center,
-            text = "Hello world"
-        )
     }
 }
 
@@ -584,11 +528,21 @@ fun DepartureDetailsDialog(
                     )
                 }
                 if (departure.isDelayed) {
+                    val delayMinutes = java.time.temporal.ChronoUnit.MINUTES.between(java.time.LocalTime.parse(departure.aimedTime), java.time.LocalTime.parse(departure.expectedTime)).let { if (it < 0) it + 24 * 60 else it }.toInt()
                     item {
                         Text(
                             text = "Forventet: ${departure.expectedTime}",
                             style = MaterialTheme.typography.body2,
                             color = Color(0xFF64B5F6), //blue color
+                            modifier = Modifier.fillMaxWidth(),
+                            textAlign = TextAlign.Center
+                        )
+                    }
+                    item {
+                        Text(
+                            text = "$delayMinutes min forsinket",
+                            style = MaterialTheme.typography.body2,
+                            color = MaterialTheme.colors.onSurfaceVariant,
                             modifier = Modifier.fillMaxWidth(),
                             textAlign = TextAlign.Center
                         )
@@ -646,7 +600,7 @@ fun DepartureDetailsDialog(
                             Button(
                                 onClick = {
                                     val url = "https://entur.no/nearby-stop-place-detail?id=$stopPlaceId&transportModes=rail"
-                                    val intent = Intent(Intent.ACTION_VIEW, Uri.parse(url))
+                                    val intent = Intent(Intent.ACTION_VIEW, url.toUri())
                                     activity?.startActivity(intent)
                                 },
                                 modifier = Modifier
@@ -736,12 +690,12 @@ fun LineSelectionScreen(
                             val textHex = line.textColour.let { if (it.startsWith("#")) it else "#$it" }
                             val bgHex = line.colour.let { if (it.startsWith("#")) it else "#$it" }
                             val lineColor = try {
-                                Color(android.graphics.Color.parseColor(textHex))
+                                Color(textHex.toColorInt())
                             } catch (_: Exception) {
                                 getOnSurfaceColor()
                             }
                             val bgColor = try {
-                                Color(android.graphics.Color.parseColor(bgHex))
+                                Color(bgHex.toColorInt())
                             } catch (_: Exception) {
                                 getSurfaceContainerColor()
                             }
@@ -905,7 +859,7 @@ fun DestinationSelectionScreen(
                                         Text(
                                             text = "✓",
                                             style = MaterialTheme.typography.title3,
-                                            color = if (isSelected) MaterialTheme.colors.onPrimary else getOnSurfaceColor()
+                                            color = MaterialTheme.colors.onPrimary
                                         )
                                     }
                                 }
@@ -971,7 +925,7 @@ fun DestinationSearchDialog(
                             EditText(ctx).apply {
                                 hint = "F.eks. Oslo S, Spikkestad..."
                                 setText(searchQuery)
-                                setSingleLine(true)
+                                isSingleLine = true
                                 requestFocus()
                                 post {
                                     val imm = ctx.getSystemService(android.content.Context.INPUT_METHOD_SERVICE) as InputMethodManager
@@ -1126,7 +1080,7 @@ fun SettingsScreen(
                             )
                         ) {
                             Text(
-                                text = if (searchQuery.isEmpty()) "Søk..." else searchQuery,
+                                text = searchQuery.ifEmpty { "Søk..." },
                                 style = MaterialTheme.typography.title3,
                                 color = getOnSurfaceColor()
                             )
@@ -1237,7 +1191,6 @@ fun SearchInputDialog(
     onSearchResultSelected: (no.togavganger.data.StationSearchResult) -> Unit,
     onDismiss: () -> Unit
 ) {
-    var editText: EditText? by remember { mutableStateOf(null) }
     Dialog(
         showDialog = true,
         onDismissRequest = onDismiss
@@ -1284,8 +1237,7 @@ fun SearchInputDialog(
                             EditText(ctx).apply {
                                 hint = "Skriv stasjonsnavn..."
                                 setText(searchQuery)
-                                setSingleLine(true)
-                                editText = this
+                                isSingleLine = true
                                 requestFocus()
                                 post {
                                     val imm = ctx.getSystemService(android.content.Context.INPUT_METHOD_SERVICE) as InputMethodManager
