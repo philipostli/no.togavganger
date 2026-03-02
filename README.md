@@ -11,6 +11,7 @@ Togavganger er en Wear OS-app som viser sanntidsinformasjon om toganganger fra d
 ## Funksjoner
 
 - **Tile-visning**: Rask oversikt over neste avganger direkte på klokken
+- **Watch face-komplikasjon**: Vis antall minutter til neste tog (kort: tallet, lang: "x min L1")
 - **Detaljvisning**: Se opptil 6 avganger med full informasjon
 - **Forsinkelsesindikasjon**: Visuell markering av forsinkede tog
 - **Sanntidsdata**: Automatisk oppdatering fra Entur API
