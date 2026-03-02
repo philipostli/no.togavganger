@@ -1,10 +1,12 @@
 package no.togavganger.data.repository
 
+import android.content.Context
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 import no.togavganger.data.Departure
 import no.togavganger.data.LineInfo
 import no.togavganger.data.TrainData
+import no.togavganger.data.preferences.TrainDataCache
 import org.json.JSONObject
 import java.net.HttpURLConnection
 import java.net.URL
@@ -39,9 +41,9 @@ class TrainRepository {
                   }
                 }
                 """.trimIndent()
-                val response = executeGraphQL(query)
-                if (response == null) return@withContext emptyList()
-                val stopPlace = response.getJSONObject("data").getJSONObject("stopPlace")
+                val result = executeGraphQL(query)
+                if (result.json == null) return@withContext emptyList()
+                val stopPlace = result.json.getJSONObject("data").getJSONObject("stopPlace")
                 val estimatedCalls = stopPlace.getJSONArray("estimatedCalls")
                 val seen = mutableSetOf<String>()
                 val lines = mutableListOf<LineInfo>()
@@ -85,9 +87,9 @@ class TrainRepository {
                   }
                 }
                 """.trimIndent()
-                val response = executeGraphQL(query)
-                if (response == null) return@withContext emptyList()
-                val stopPlace = response.getJSONObject("data").getJSONObject("stopPlace")
+                val result = executeGraphQL(query)
+                if (result.json == null) return@withContext emptyList()
+                val stopPlace = result.json.getJSONObject("data").getJSONObject("stopPlace")
                 val estimatedCalls = stopPlace.getJSONArray("estimatedCalls")
                 val seen = mutableSetOf<String>()
                 val destinations = mutableListOf<String>()
@@ -138,7 +140,9 @@ class TrainRepository {
         return summary to description
     }
 
-    private fun executeGraphQL(query: String): JSONObject? {
+    private data class GraphQLResult(val json: JSONObject?, val httpErrorCode: Int?)
+
+    private fun executeGraphQL(query: String): GraphQLResult {
         val url = URL("https://api.entur.io/journey-planner/v3/graphql")
         val connection = url.openConnection() as HttpURLConnection
         connection.requestMethod = "POST"
@@ -147,12 +151,18 @@ class TrainRepository {
         connection.doOutput = true
         val body = JSONObject().apply { put("query", query) }
         connection.outputStream.use { it.write(body.toString().toByteArray()) }
-        if (connection.responseCode != HttpURLConnection.HTTP_OK) return null
+        val code = connection.responseCode
+        if (code != HttpURLConnection.HTTP_OK) return GraphQLResult(null, code)
         val response = connection.inputStream.bufferedReader().use { it.readText() }
-        return JSONObject(response)
+        return GraphQLResult(JSONObject(response), null)
     }
 
-    suspend fun fetchTrainData(stopPlaceId: String, lineId: String? = null, destinations: Set<String>? = null): TrainData {
+    suspend fun fetchTrainData(
+        stopPlaceId: String,
+        lineId: String? = null,
+        destinations: Set<String>? = null,
+        cacheContext: Context? = null
+    ): TrainData {
         return withContext(Dispatchers.IO) {
             try {
                 val whiteListedClause = if (lineId != null) "\n                        whiteListed: { lines: \"$lineId\" }" else ""
@@ -194,11 +204,12 @@ class TrainRepository {
                   }
                 }
                 """.trimIndent()
-                val jsonResponse = executeGraphQL(query)
-                if (jsonResponse == null) {
-                    return@withContext TrainData("API Feil", "", emptyList())
+                val result = executeGraphQL(query)
+                if (result.json == null) {
+                    val code = result.httpErrorCode ?: 0
+                    return@withContext TrainData("API Feil", "HTTP $code", emptyList(), isApiError = true)
                 }
-                val stopPlace = jsonResponse.getJSONObject("data").getJSONObject("stopPlace")
+                val stopPlace = result.json.getJSONObject("data").getJSONObject("stopPlace")
                 val stopName = stopPlace.getString("name")
                 val estimatedCalls = stopPlace.getJSONArray("estimatedCalls")
                 val departures = mutableListOf<Departure>()
@@ -226,9 +237,16 @@ class TrainRepository {
                     val (summary, description) = parseNorwegianSituationTexts(call)
                     departures.add(Departure(dest, aimedTime, expectedTime, isDelayed, platformCode, summary, description))
                 }
-                TrainData(stopName, topLevelLineCode, departures)
+                val data = TrainData(stopName, topLevelLineCode, departures)
+                cacheContext?.let { ctx ->
+                    TrainDataCache(ctx).put(stopPlaceId, lineId, destinations, data)
+                }
+                data
             } catch (e: Exception) {
-                TrainData("Feil", e.javaClass.simpleName, emptyList())
+                val cached = cacheContext?.let { ctx ->
+                    TrainDataCache(ctx).get(stopPlaceId, lineId, destinations)
+                }
+                cached ?: TrainData(stopName = "", lineCode = "", departures = emptyList())
             }
         }
     }

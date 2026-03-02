@@ -1,6 +1,11 @@
 package no.togavganger.data
 
-data class TrainData(val stopName: String, val lineCode: String, val departures: List<Departure>)
+data class TrainData(
+    val stopName: String,
+    val lineCode: String,
+    val departures: List<Departure>,
+    val isApiError: Boolean = false
+)
 
 data class LineInfo(
     val id: String,

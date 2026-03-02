@@ -110,15 +110,12 @@ class TrainViewModel(application: Application) : AndroidViewModel(application) {
             _uiState.value = _uiState.value.copy(isLoading = true, error = null)
             val lineId = _uiState.value.selectedLineId
             val destinations = _uiState.value.selectedDestinations.takeIf { it.isNotEmpty() }
-            val data = repository.fetchTrainData(selectedStationId, lineId, destinations)
+            val data = repository.fetchTrainData(selectedStationId, lineId, destinations, cacheContext = getApplication())
             _uiState.value =
                     _uiState.value.copy(
                             trainData = data,
                             isLoading = false,
-                            error =
-                                    if (data.departures.isEmpty() && data.stopName == "Feil")
-                                            "Kunne ikke hente toginformasjon"
-                                    else null
+                            error = if (data.isApiError) "Kunne ikke hente toginformasjon" else null
                     )
         }
     }
@@ -179,15 +176,12 @@ class TrainViewModel(application: Application) : AndroidViewModel(application) {
             _uiState.value = _uiState.value.copy(isLoading = true, error = null)
             val lineId = _uiState.value.selectedLineId
             val destinations = _uiState.value.selectedDestinations.takeIf { it.isNotEmpty() }
-            val data = repository.fetchTrainData(stopPlaceId, lineId, destinations)
+            val data = repository.fetchTrainData(stopPlaceId, lineId, destinations, cacheContext = getApplication())
             _uiState.value =
                     _uiState.value.copy(
                             trainData = data,
                             isLoading = false,
-                            error =
-                                    if (data.departures.isEmpty() && data.stopName == "Feil")
-                                            "Kunne ikke hente toginformasjon"
-                                    else null
+                            error = if (data.isApiError) "Kunne ikke hente toginformasjon" else null
                     )
         }
     }
