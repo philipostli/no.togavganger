@@ -140,7 +140,8 @@ fun DepartureDetailsDialogPreview2() {
             expectedTime = "22:10",
             isDelayed = false,
             platformCode = "2",
-            summary = "Buss erstatter tog"
+            summary = "Buss erstatter tog",
+            description = "Denne avgangen kjører dessverre med 4 vogner i stedet for 8 vogner."
         )
         DepartureDetailsDialog(
             departure = mockDeparture,

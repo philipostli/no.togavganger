@@ -449,7 +449,7 @@ fun DepartureCard(
                 verticalAlignment = Alignment.CenterVertically,
                 modifier = Modifier.weight(1f)
             ) {
-                if (!departure.summary.isNullOrBlank()) {
+                if (!departure.description.isNullOrBlank() || !departure.summary.isNullOrBlank()) {
                     Text(
                         text = "⚠",
                         style = MaterialTheme.typography.title3,
@@ -521,7 +521,7 @@ fun DepartureDetailsDialog(
                 contentPadding = contentPadding,
                 modifier = Modifier.fillMaxSize()
             ) {
-                if (!departure.summary.isNullOrBlank()) {
+                if (!departure.description.isNullOrBlank() || !departure.summary.isNullOrBlank()) {
                     item {
                         Text(
                             text = "⚠",
@@ -531,7 +531,7 @@ fun DepartureDetailsDialog(
                             textAlign = TextAlign.Center
                         )
                     }
-                }else{
+                } else {
                     item {
                         Spacer(modifier = Modifier.height(8.dp))
                     }
@@ -607,7 +607,7 @@ fun DepartureDetailsDialog(
                         )
                     }
                 }
-                if (!departure.summary.isNullOrBlank()) {
+                if (!departure.description.isNullOrBlank() || !departure.summary.isNullOrBlank()) {
                     item {
                         Spacer(modifier = Modifier.height(8.dp))
                     }
@@ -624,7 +624,7 @@ fun DepartureDetailsDialog(
                                 textAlign = TextAlign.Center
                             )
                             Text(
-                                text = departure.summary,
+                                text = departure.description ?: departure.summary ?: "",
                                 style = MaterialTheme.typography.body2,
                                 color = MaterialTheme.colors.onSurfaceVariant,
                                 modifier = Modifier.fillMaxWidth(),
@@ -804,8 +804,8 @@ fun DestinationSelectionScreen(
             item {
                 ListHeader {
                     Text(
-                        text = "Velg destinasjoner",
-                        style = MaterialTheme.typography.title2,
+                        text = "Destinasjoner",
+                        style = MaterialTheme.typography.title3,
                         color = MaterialTheme.colors.primary,
                         modifier = Modifier.fillMaxWidth(),
                         textAlign = TextAlign.Center

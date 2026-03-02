@@ -148,7 +148,7 @@ fun tileLayout(
                                         LayoutElementBuilders.Row.Builder()
                                             .setVerticalAlignment(LayoutElementBuilders.VERTICAL_ALIGN_CENTER)
                                             .apply {
-                                                if (!departure.summary.isNullOrBlank()) {
+                                                if (!departure.description.isNullOrBlank() || !departure.summary.isNullOrBlank()) {
                                                     addContent(
                                                         text(
                                                             "⚠".layoutString,

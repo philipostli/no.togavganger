@@ -106,21 +106,36 @@ class TrainRepository {
         }
     }
 
-    private fun parseNorwegianSummary(call: JSONObject): String? {
-        val situations = call.optJSONArray("situations") ?: return null
-        val values = mutableListOf<String>()
+    private fun parseNorwegianSituationTexts(call: JSONObject): Pair<String?, String?> {
+        val situations = call.optJSONArray("situations") ?: return null to null
+        val summaries = mutableListOf<String>()
+        val descriptions = mutableListOf<String>()
         for (i in 0 until situations.length()) {
-            val summaries = situations.getJSONObject(i).optJSONArray("summary")
-            if (summaries == null) continue
-            for (j in 0 until summaries.length()) {
-                val s = summaries.getJSONObject(j)
-                if (s.optString("language") == "no") {
-                    val value = s.optString("value", "").trim()
-                    if (value.isNotEmpty()) values.add(value)
+            val situation = situations.getJSONObject(i)
+            val summaryArr = situation.optJSONArray("summary")
+            if (summaryArr != null) {
+                for (j in 0 until summaryArr.length()) {
+                    val s = summaryArr.getJSONObject(j)
+                    if (s.optString("language") == "no") {
+                        val value = s.optString("value", "").trim()
+                        if (value.isNotEmpty()) summaries.add(value)
+                    }
+                }
+            }
+            val descArr = situation.optJSONArray("description")
+            if (descArr != null) {
+                for (j in 0 until descArr.length()) {
+                    val d = descArr.getJSONObject(j)
+                    if (d.optString("language") == "no") {
+                        val value = d.optString("value", "").trim()
+                        if (value.isNotEmpty()) descriptions.add(value)
+                    }
                 }
             }
         }
-        return values.distinct().joinToString("\n").takeIf { it.isNotEmpty() }
+        val summary = summaries.distinct().joinToString("\n").takeIf { it.isNotEmpty() }
+        val description = descriptions.distinct().joinToString("\n").takeIf { it.isNotEmpty() }
+        return summary to description
     }
 
     private fun executeGraphQL(query: String): JSONObject? {
@@ -208,8 +223,8 @@ class TrainRepository {
                         .isAfter(aimedDateTime.truncatedTo(ChronoUnit.MINUTES))
                     val aimedTime = aimedDateTime.format(timeFormatter)
                     val expectedTime = expectedDateTime.format(timeFormatter)
-                    val summary = parseNorwegianSummary(call)
-                    departures.add(Departure(dest, aimedTime, expectedTime, isDelayed, platformCode, summary))
+                    val (summary, description) = parseNorwegianSituationTexts(call)
+                    departures.add(Departure(dest, aimedTime, expectedTime, isDelayed, platformCode, summary, description))
                 }
                 TrainData(stopName, topLevelLineCode, departures)
             } catch (e: Exception) {
