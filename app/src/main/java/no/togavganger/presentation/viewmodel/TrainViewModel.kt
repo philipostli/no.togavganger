@@ -195,7 +195,7 @@ class TrainViewModel(application: Application) : AndroidViewModel(application) {
         _uiState.value = _uiState.value.copy(showLineSelection = true, isLoadingLines = true, availableLines = emptyList())
         val stopPlaceId = _uiState.value.selectedStationId ?: return
         viewModelScope.launch {
-            val lines = repository.fetchLines(stopPlaceId)
+            val lines = repository.fetchLines(stopPlaceId).sortedBy { it.publicCode }
             _uiState.value = _uiState.value.copy(availableLines = lines, isLoadingLines = false)
         }
     }
