@@ -10,6 +10,7 @@ import androidx.wear.compose.material.MaterialTheme
 import androidx.wear.compose.material3.TimeText
 import androidx.wear.tooling.preview.devices.WearDevices
 import no.togavganger.data.Departure
+import no.togavganger.data.LineInfo
 import no.togavganger.data.StationSearchResult
 import no.togavganger.data.TrainData
 import no.togavganger.presentation.theme.TogavgangerTheme
@@ -260,6 +261,41 @@ fun SettingsScreenSearchResultsPreview() {
             onToggleSearch = {},
             onStationSelected = {},
             onDismiss = {}
+        )
+    }
+}
+
+@Preview(device = WearDevices.SMALL_ROUND, showSystemUi = true, name = "Line Selection (Small)")
+@Preview(device = WearDevices.LARGE_ROUND, showSystemUi = true, name = "Line Selection (Large)")
+@Composable
+fun LineSelectionScreenPreview() {
+    TogavgangerTheme {
+        val mockLines = listOf(
+            LineInfo("VYG:Line:L1", "L1", "FFFFFF", "8DC63F"),
+            LineInfo("VYG:Line:L2", "L2", "000000", "FFFFFF"),
+            LineInfo("NSB:Line:R10", "R10", "FFFFFF", "003366")
+        )
+        LineSelectionScreen(
+            availableLines = mockLines,
+            isLoadingLines = false,
+            onLineSelected = {},
+            onDismiss = {}
+        )
+    }
+}
+
+@Preview(device = WearDevices.SMALL_ROUND, showSystemUi = true, name = "Destination Selection (Small)")
+@Preview(device = WearDevices.LARGE_ROUND, showSystemUi = true, name = "Destination Selection (Large)")
+@Composable
+fun DestinationSelectionScreenPreview() {
+    TogavgangerTheme {
+        DestinationSelectionScreen(
+            availableDestinations = listOf("Oslo S", "Spikkestad", "Asker", "Drammen", "Sandvika"),
+            selectedDestinations = setOf("Oslo S", "Spikkestad"),
+            isLoadingDestinations = false,
+            onToggleDestination = {},
+            onConfirm = {},
+            onSearchClick = {}
         )
     }
 }
