@@ -17,6 +17,7 @@ import no.togavganger.data.TrainData
 import no.togavganger.data.preferences.StationPreferences
 import no.togavganger.data.repository.TrainRepository
 import no.togavganger.presentation.MainActivity
+import no.togavganger.R
 import java.time.LocalTime
 import java.time.ZoneId
 import java.time.ZonedDateTime
@@ -123,10 +124,8 @@ class MainComplicationService : SuspendingComplicationDataSourceService() {
         )
     }
 
-    private fun complicationIcon(): MonochromaticImage? {
-        val resId = resources.getIdentifier("ic_complication_train", "drawable", packageName)
-        if (resId == 0) return null
-        val icon = Icon.createWithResource(this, resId)
+    private fun complicationIcon(): MonochromaticImage {
+        val icon = Icon.createWithResource(this, R.drawable.ic_complication_train)
         return MonochromaticImage.Builder(icon).build()
     }
 
@@ -139,7 +138,7 @@ class MainComplicationService : SuspendingComplicationDataSourceService() {
             text = PlainComplicationText.Builder(text).build(),
             contentDescription = PlainComplicationText.Builder(contentDesc).build()
         ).apply {
-            complicationIcon()?.let { setMonochromaticImage(it) }
+            setMonochromaticImage(complicationIcon())
             tapAction?.let { setTapAction(it) }
         }.build()
     }
@@ -153,7 +152,7 @@ class MainComplicationService : SuspendingComplicationDataSourceService() {
             text = PlainComplicationText.Builder(text).build(),
             contentDescription = PlainComplicationText.Builder(contentDesc).build()
         ).apply {
-            complicationIcon()?.let { setMonochromaticImage(it) }
+            setMonochromaticImage(complicationIcon())
             tapAction?.let { setTapAction(it) }
         }.build()
     }
