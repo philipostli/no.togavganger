@@ -7,6 +7,7 @@ import androidx.wear.protolayout.DimensionBuilders.dp
 import androidx.wear.protolayout.DimensionBuilders.expand
 import androidx.wear.protolayout.LayoutElementBuilders
 import androidx.wear.protolayout.ResourceBuilders
+import androidx.wear.protolayout.types.LayoutColor
 import androidx.wear.protolayout.TimelineBuilders
 import androidx.wear.tiles.RequestBuilders
 import androidx.wear.tiles.TileBuilders
@@ -153,7 +154,7 @@ fun tileLayout(
                                                         text(
                                                             "⚠".layoutString,
                                                             typography = Typography.TITLE_SMALL,
-                                                            color = if (departure.isDelayed) colorScheme.onTertiaryContainer else colorScheme.primary
+                                                            color = if (departure.isDelayed) colorScheme.onTertiaryContainer else LayoutColor(0xFFFFB300.toInt())
                                                         )
                                                     )
                                                     addContent(LayoutElementBuilders.Spacer.Builder().setWidth(dp(4f)).build())
