@@ -21,6 +21,15 @@ Relevant libraries to resolve:
 | Wear Tiles / Protolayout | `androidx wear tiles` or `androidx wear protolayout` |
 | Horologist | `horologist` |
 | Kotlin Coroutines | `kotlin coroutines` |
+| Android Core / general Android APIs | `androidx core` or `android` |
+
+## Lint Warnings = Android Best Practices
+
+When a lint warning appears, it reflects an official Android recommendation. Before fixing it:
+
+1. Identify the recommended alternative from the lint message.
+2. If unclear, use Context7 to resolve `androidx core` or `android` and query the specific API/pattern.
+3. Apply the canonical Android solution — do not suppress or work around lint warnings without understanding the recommended pattern.
 
 ## Project Versions (gradle/libs.versions.toml)
 
@@ -66,6 +75,7 @@ Do not pass `ComponentActivity` (or any `Activity`) down through composable para
 ### Error Handling
 
 Do not use magic strings like `"Feil"`. Prefer `Result<T>` or sealed classes for error states.
+
 
 ### Colors and Theme
 
