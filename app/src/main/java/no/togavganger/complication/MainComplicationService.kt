@@ -16,6 +16,7 @@ import kotlinx.coroutines.withContext
 import no.togavganger.data.TrainData
 import no.togavganger.data.preferences.StationPreferences
 import no.togavganger.data.repository.TrainRepository
+import androidx.core.app.TaskStackBuilder
 import no.togavganger.presentation.MainActivity
 import no.togavganger.R
 import java.time.LocalTime
@@ -107,21 +108,17 @@ class MainComplicationService : SuspendingComplicationDataSourceService() {
                 zdt = ZonedDateTime.of(localDate, localTime, refNow.zone)
             }
             zdt.toInstant().toEpochMilli()
-        } catch (e: Exception) {
+        } catch (_: Exception) {
             null
         }
     }
 
     private fun createTapAction(): PendingIntent {
-        val intent = Intent(this, MainActivity::class.java).apply {
-            flags = Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TOP
+        val intent = Intent(this, MainActivity::class.java)
+        return TaskStackBuilder.create(this).run {
+            addNextIntentWithParentStack(intent)
+            getPendingIntent(0, PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE)!!
         }
-        return PendingIntent.getActivity(
-            this,
-            0,
-            intent,
-            PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
-        )
     }
 
     private fun complicationIcon(): MonochromaticImage {
