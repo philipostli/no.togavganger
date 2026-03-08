@@ -103,10 +103,12 @@ class MainComplicationService : SuspendingComplicationDataSourceService() {
             val localTime = LocalTime.parse(timeStr, DateTimeFormatter.ofPattern("HH:mm"))
             var localDate = refNow.toLocalDate()
             var zdt = ZonedDateTime.of(localDate, localTime, refNow.zone)
-            if (zdt.toInstant().toEpochMilli() <= refNow.toInstant().toEpochMilli()) {
-                localDate = localDate.plusDays(1)
-                zdt = ZonedDateTime.of(localDate, localTime, refNow.zone)
-            }
+        val millisInPast = refNow.toInstant().toEpochMilli() - zdt.toInstant().toEpochMilli()
+        if (millisInPast > 60 * 60_000) {
+            // More than 1 hour in the past = midnight crossover, advance to next day
+            localDate = localDate.plusDays(1)
+            zdt = ZonedDateTime.of(localDate, localTime, refNow.zone)
+        }
             zdt.toInstant().toEpochMilli()
         } catch (_: Exception) {
             null
