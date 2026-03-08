@@ -5,7 +5,8 @@
     values-round/strings.xml for round devices.
     -->
     <string name="hello_world">From the Square world,\nHello, %1$s!</string>
-    <string name="tile_label">Togavganger</string>
-    <string name="tile_label_2">Togavganger 2</string>
-    <string name="complication_label">Togavganger</string>
+    <string name="tile_label">Togavganger stasjon 1</string>
+    <string name="tile_label_2">Togavganger stasjon 2</string>
+    <string name="complication_label">Togavganger stasjon 1</string>
+    <string name="complication_label_2">Togavganger stasjon 2</string>
 </resources>
