@@ -23,3 +23,9 @@ data class Departure(
     val summary: String? = null,
     val description: String? = null
 )
+
+data class ArrivalInfo(
+    val aimedArrivalTime: String,
+    val expectedArrivalTime: String,
+    val isDelayed: Boolean
+)

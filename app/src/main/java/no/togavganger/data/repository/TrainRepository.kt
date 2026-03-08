@@ -3,6 +3,7 @@ package no.togavganger.data.repository
 import android.content.Context
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
+import no.togavganger.data.ArrivalInfo
 import no.togavganger.data.Departure
 import no.togavganger.data.LineInfo
 import no.togavganger.data.TrainData
@@ -220,7 +221,8 @@ class TrainRepository {
                     val call = estimatedCalls.getJSONObject(i)
                     val dest = call.getJSONObject("destinationDisplay").getString("frontText")
                     if (destinationsFilter != null && dest !in destinationsFilter) continue
-                    val lineCode = call.getJSONObject("serviceJourney").getJSONObject("line").getString("publicCode")
+                    val serviceJourney = call.getJSONObject("serviceJourney")
+                    val lineCode = serviceJourney.getJSONObject("line").getString("publicCode")
                     if (topLevelLineCode.isEmpty()) {
                         topLevelLineCode = lineCode
                     }
@@ -247,6 +249,84 @@ class TrainRepository {
                     TrainDataCache(ctx).get(stopPlaceId, lineId, destinations)
                 }
                 cached ?: TrainData(stopName = "", lineCode = "", departures = emptyList())
+            }
+        }
+    }
+
+    suspend fun fetchArrivalTime(
+        fromStopPlaceId: String,
+        toStopPlaceId: String,
+        departureDateTime: String,
+        lineId: String? = null
+    ): ArrivalInfo? {
+        return withContext(Dispatchers.IO) {
+            try {
+                val whiteListedClause = if (lineId != null) "\n            whiteListed: {\n                lines: \"$lineId\"\n            }," else ""
+                val query = """
+                {
+                  trip(
+                    from: {
+                      place: "$fromStopPlaceId"
+                    },
+                    to: {
+                      place: "$toStopPlaceId"
+                    },
+                    numTripPatterns: 1,
+                    $whiteListedClause
+                    dateTime: "$departureDateTime"
+                  ) {
+                    tripPatterns {
+                      legs {
+                        mode
+                        line {
+                          id
+                          publicCode
+                        }
+                        toEstimatedCall {
+                          aimedArrivalTime
+                          expectedArrivalTime
+                        }
+                      }
+                    }
+                  }
+                }
+                """.trimIndent()
+                val result = executeGraphQL(query)
+                if (result.json == null) return@withContext null
+                val trip = result.json.optJSONObject("data")?.optJSONObject("trip") ?: return@withContext null
+                val tripPatterns = trip.optJSONArray("tripPatterns") ?: return@withContext null
+                if (tripPatterns.length() == 0) return@withContext null
+                val firstPattern = tripPatterns.getJSONObject(0)
+                val legs = firstPattern.optJSONArray("legs") ?: return@withContext null
+                if (legs.length() == 0) return@withContext null
+                
+                var railLeg: JSONObject? = null
+                for (i in 0 until legs.length()) {
+                    val leg = legs.getJSONObject(i)
+                    if (leg.optString("mode") == "rail") {
+                        railLeg = leg
+                        break
+                    }
+                }
+                val toCall = railLeg?.optJSONObject("toEstimatedCall") ?: return@withContext null
+                
+                val aimedRaw = toCall.optString("aimedArrivalTime")
+                val expectedRaw = toCall.optString("expectedArrivalTime", aimedRaw)
+                if (aimedRaw.isEmpty()) return@withContext null
+                
+                val aimedDateTime = ZonedDateTime.parse(aimedRaw)
+                val expectedDateTime = ZonedDateTime.parse(expectedRaw)
+                val isDelayed = expectedDateTime.truncatedTo(ChronoUnit.MINUTES)
+                    .isAfter(aimedDateTime.truncatedTo(ChronoUnit.MINUTES))
+                
+                val timeFormatter = DateTimeFormatter.ofPattern("HH:mm")
+                return@withContext ArrivalInfo(
+                    aimedArrivalTime = aimedDateTime.format(timeFormatter),
+                    expectedArrivalTime = expectedDateTime.format(timeFormatter),
+                    isDelayed = isDelayed
+                )
+            } catch (e: Exception) {
+                null
             }
         }
     }

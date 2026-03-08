@@ -37,6 +37,14 @@ class StationPreferences(context: Context) {
             putStringSet(KEY_SELECTED_DESTINATIONS, destinations)
         }.apply()
     }
+    fun getDestinationStationId(): String? = preferences.getString(KEY_DESTINATION_STATION_ID, null)
+    fun getDestinationStationName(): String? = preferences.getString(KEY_DESTINATION_STATION_NAME, null)
+    fun setDestinationStation(stationId: String?, stationName: String?) {
+        preferences.edit().apply {
+            putString(KEY_DESTINATION_STATION_ID, stationId)
+            putString(KEY_DESTINATION_STATION_NAME, stationName)
+        }.apply()
+    }
     fun getRecentStations(): List<Pair<String, String>> {
         val raw = preferences.getString(KEY_RECENT_STATIONS, null) ?: return emptyList()
         return raw.split(ENTRY_SEP).mapNotNull { entry ->
@@ -59,6 +67,8 @@ class StationPreferences(context: Context) {
         private const val KEY_SELECTED_LINE_ID = "selected_line_id"
         private const val KEY_SELECTED_LINE_PUBLIC_CODE = "selected_line_public_code"
         private const val KEY_SELECTED_DESTINATIONS = "selected_destinations"
+        private const val KEY_DESTINATION_STATION_ID = "destination_station_id"
+        private const val KEY_DESTINATION_STATION_NAME = "destination_station_name"
         private const val KEY_RECENT_STATIONS = "recent_stations"
         private const val ENTRY_SEP = "|||"
         private const val ID_NAME_SEP = ";;;"

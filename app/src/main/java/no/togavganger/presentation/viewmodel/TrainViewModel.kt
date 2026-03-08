@@ -7,12 +7,16 @@ import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.launch
+import no.togavganger.data.ArrivalInfo
 import no.togavganger.data.LineInfo
 import no.togavganger.data.StationSearchResult
 import no.togavganger.data.TrainData
 import no.togavganger.data.preferences.StationPreferences
 import no.togavganger.data.repository.GeocoderRepository
 import no.togavganger.data.repository.TrainRepository
+import java.time.LocalTime
+import java.time.ZonedDateTime
+import java.time.format.DateTimeFormatter
 
 data class TrainUiState(
         val trainData: TrainData? = null,
@@ -37,7 +41,15 @@ data class TrainUiState(
         val selectedLinePublicCode: String? = null,
         val showDestinationSearch: Boolean = false,
         val destinationSearchQuery: String = "",
-        val recentStations: List<StationSearchResult> = emptyList()
+        val recentStations: List<StationSearchResult> = emptyList(),
+        val destinationStationId: String? = null,
+        val destinationStationName: String? = null,
+        val showDestinationStationSelection: Boolean = false,
+        val destinationStationSearchQuery: String = "",
+        val destinationStationSearchResults: List<StationSearchResult> = emptyList(),
+        val isDestinationStationSearchLoading: Boolean = false,
+        val arrivalInfo: ArrivalInfo? = null,
+        val isLoadingArrival: Boolean = false
 )
 
 sealed class TrainEvent {
@@ -58,6 +70,10 @@ sealed class TrainEvent {
     object DismissDestinationSearch : TrainEvent()
     data class UpdateDestinationSearchQuery(val query: String) : TrainEvent()
     data class AddCustomDestination(val destination: String) : TrainEvent()
+    object ShowDestinationStationSelection : TrainEvent()
+    object DismissDestinationStationSelection : TrainEvent()
+    data class UpdateDestinationStationSearchQuery(val query: String) : TrainEvent()
+    data class SelectDestinationStation(val result: StationSearchResult) : TrainEvent()
 }
 
 class TrainViewModel(application: Application) : AndroidViewModel(application) {
@@ -70,7 +86,9 @@ class TrainViewModel(application: Application) : AndroidViewModel(application) {
             selectedStationName = stationPreferences.getSelectedStationName(),
             selectedLineId = stationPreferences.getSelectedLineId(),
             selectedLinePublicCode = stationPreferences.getSelectedLinePublicCode(),
-            selectedDestinations = stationPreferences.getSelectedDestinations().toSet()
+            selectedDestinations = stationPreferences.getSelectedDestinations().toSet(),
+            destinationStationId = stationPreferences.getDestinationStationId(),
+            destinationStationName = stationPreferences.getDestinationStationName()
         )
     )
     val uiState: StateFlow<TrainUiState> = _uiState.asStateFlow()
@@ -99,6 +117,10 @@ class TrainViewModel(application: Application) : AndroidViewModel(application) {
             is TrainEvent.DismissDestinationSearch -> dismissDestinationSearch()
             is TrainEvent.UpdateDestinationSearchQuery -> updateDestinationSearchQuery(event.query)
             is TrainEvent.AddCustomDestination -> addCustomDestination(event.destination)
+            is TrainEvent.ShowDestinationStationSelection -> showDestinationStationSelection()
+            is TrainEvent.DismissDestinationStationSelection -> dismissDestinationStationSelection()
+            is TrainEvent.UpdateDestinationStationSearchQuery -> updateDestinationStationSearchQuery(event.query)
+            is TrainEvent.SelectDestinationStation -> selectDestinationStation(event.result)
         }
     }
     private fun loadTrainData() {
@@ -117,10 +139,48 @@ class TrainViewModel(application: Application) : AndroidViewModel(application) {
         }
     }
     private fun selectDeparture(index: Int) {
-        _uiState.value = _uiState.value.copy(selectedDepartureIndex = index)
+        _uiState.value = _uiState.value.copy(
+            selectedDepartureIndex = index,
+            arrivalInfo = null,
+            isLoadingArrival = false
+        )
+        val destStationId = _uiState.value.destinationStationId ?: return
+        val fromStationId = _uiState.value.selectedStationId ?: return
+        val departures = _uiState.value.trainData?.departures ?: return
+        val departure = departures.getOrNull(index) ?: return
+        
+        val now = ZonedDateTime.now(java.time.ZoneId.systemDefault())
+        val localTime = LocalTime.parse(departure.aimedTime, DateTimeFormatter.ofPattern("HH:mm"))
+        var departureDate = now.toLocalDate()
+        var departureDateTime = ZonedDateTime.of(departureDate, localTime, now.zone)
+        
+        if (departureDateTime.isBefore(now)) {
+            departureDate = departureDate.plusDays(1)
+            departureDateTime = ZonedDateTime.of(departureDate, localTime, now.zone)
+        }
+        
+        val departureDateTimeString = departureDateTime.format(DateTimeFormatter.ISO_OFFSET_DATE_TIME)
+        
+        viewModelScope.launch {
+            _uiState.value = _uiState.value.copy(isLoadingArrival = true)
+            val arrival = repository.fetchArrivalTime(
+                fromStopPlaceId = fromStationId,
+                toStopPlaceId = destStationId,
+                departureDateTime = departureDateTimeString,
+                lineId = _uiState.value.selectedLineId
+            )
+            val current = _uiState.value
+            if (current.selectedDepartureIndex == index) {
+                _uiState.value = current.copy(arrivalInfo = arrival, isLoadingArrival = false)
+            }
+        }
     }
     private fun dismissDetails() {
-        _uiState.value = _uiState.value.copy(selectedDepartureIndex = null)
+        _uiState.value = _uiState.value.copy(
+            selectedDepartureIndex = null,
+            arrivalInfo = null,
+            isLoadingArrival = false
+        )
     }
     private fun showSettings() {
         val recent = stationPreferences.getRecentStations().map { StationSearchResult(it.first, it.second) }
@@ -249,6 +309,52 @@ class TrainViewModel(application: Application) : AndroidViewModel(application) {
             showDestinationSearch = false,
             destinationSearchQuery = "",
             availableDestinations = newDests
+        )
+    }
+    private fun showDestinationStationSelection() {
+        _uiState.value = _uiState.value.copy(
+            showDestinationStationSelection = true,
+            destinationStationSearchQuery = "",
+            destinationStationSearchResults = emptyList()
+        )
+    }
+    private fun dismissDestinationStationSelection() {
+        _uiState.value = _uiState.value.copy(
+            showDestinationStationSelection = false,
+            destinationStationSearchQuery = "",
+            destinationStationSearchResults = emptyList(),
+            isDestinationStationSearchLoading = false
+        )
+    }
+    private fun updateDestinationStationSearchQuery(query: String) {
+        _uiState.value = _uiState.value.copy(destinationStationSearchQuery = query)
+        if (query.length >= 2) {
+            searchDestinationStations(query)
+        } else {
+            _uiState.value = _uiState.value.copy(
+                destinationStationSearchResults = emptyList(),
+                isDestinationStationSearchLoading = false
+            )
+        }
+    }
+    private fun searchDestinationStations(query: String) {
+        viewModelScope.launch {
+            _uiState.value = _uiState.value.copy(isDestinationStationSearchLoading = true)
+            val results = geocoderRepository.searchStations(query)
+            _uiState.value = _uiState.value.copy(
+                destinationStationSearchResults = results,
+                isDestinationStationSearchLoading = false
+            )
+        }
+    }
+    private fun selectDestinationStation(result: StationSearchResult) {
+        stationPreferences.setDestinationStation(result.id, result.name)
+        _uiState.value = _uiState.value.copy(
+            destinationStationId = result.id,
+            destinationStationName = result.name,
+            showDestinationStationSelection = false,
+            destinationStationSearchQuery = "",
+            destinationStationSearchResults = emptyList()
         )
     }
 }

@@ -174,6 +174,16 @@ fun TrainDeparturesScreen(
             onLineSelected = { line -> viewModel.handleEvent(TrainEvent.SelectLine(line)) },
             onDismiss = { viewModel.handleEvent(TrainEvent.DismissLineSelection) }
         )
+    } else if (uiState.showDestinationStationSelection) {
+        DestinationStationSelectionScreen(
+            selectedDestinationStation = uiState.destinationStationName,
+            searchQuery = uiState.destinationStationSearchQuery,
+            searchResults = uiState.destinationStationSearchResults,
+            isSearchLoading = uiState.isDestinationStationSearchLoading,
+            onSearchQueryChanged = { viewModel.handleEvent(TrainEvent.UpdateDestinationStationSearchQuery(it)) },
+            onStationSelected = { viewModel.handleEvent(TrainEvent.SelectDestinationStation(it)) },
+            onDismiss = { viewModel.handleEvent(TrainEvent.DismissDestinationStationSelection) }
+        )
     } else if (uiState.showDestinationSelection) {
         DestinationSelectionScreen(
             availableDestinations = uiState.availableDestinations,
@@ -227,7 +237,8 @@ fun TrainDeparturesScreen(
                         trainData = trainData,
                         onDepartureClick = { index -> viewModel.handleEvent(TrainEvent.SelectDeparture(index)) },
                         onSettingsClick = { viewModel.handleEvent(TrainEvent.ShowSettings) },
-                        onLinesClick = { viewModel.handleEvent(TrainEvent.ShowLineSelection) }
+                        onLinesClick = { viewModel.handleEvent(TrainEvent.ShowLineSelection) },
+                        onDestinationStationClick = { viewModel.handleEvent(TrainEvent.ShowDestinationStationSelection) }
                     )
                     uiState.selectedDepartureIndex?.let { index ->
                         val departure = trainData.departures.getOrNull(index)
@@ -237,6 +248,9 @@ fun TrainDeparturesScreen(
                                 stopName = trainData.stopName,
                                 lineCode = trainData.lineCode,
                                 stopPlaceId = uiState.selectedStationId,
+                                arrivalInfo = uiState.arrivalInfo,
+                                isLoadingArrival = uiState.isLoadingArrival,
+                                destinationStationName = uiState.destinationStationName,
                                 activity = activity,
                                 onDismiss = { viewModel.handleEvent(TrainEvent.DismissDetails) }
                             )
@@ -254,7 +268,8 @@ fun TrainListContent(
     trainData: TrainData,
     onDepartureClick: (Int) -> Unit,
     onSettingsClick: () -> Unit,
-    onLinesClick: () -> Unit = {}
+    onLinesClick: () -> Unit = {},
+    onDestinationStationClick: () -> Unit = {}
 ) {
     val scrollState = rememberTransformingLazyColumnState()
     ScreenScaffold(
@@ -356,6 +371,33 @@ fun TrainListContent(
                     }
                 }
             }
+            item {
+                Spacer(modifier = Modifier.height(4.dp))
+            }
+            item {
+                Box(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(horizontal = 4.dp)
+                ) {
+                    Button(
+                        onClick = onDestinationStationClick,
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .height(38.dp),
+                        colors = ButtonDefaults.secondaryButtonColors(
+                            backgroundColor = getSurfaceContainerColor(),
+                            contentColor = getOnSurfaceColor()
+                        )
+                    ) {
+                        Text(
+                            text = "Velg destinasjon",
+                            style = MaterialTheme.typography.title3,
+                            color = getOnSurfaceColor()
+                        )
+                    }
+                }
+            }
         }
     }
 }
@@ -435,6 +477,9 @@ fun DepartureDetailsDialog(
     stopName: String,
     lineCode: String,
     stopPlaceId: String?,
+    arrivalInfo: no.togavganger.data.ArrivalInfo?,
+    isLoadingArrival: Boolean,
+    destinationStationName: String?,
     activity: ComponentActivity?,
     onDismiss: () -> Unit
 ) {
@@ -482,18 +527,6 @@ fun DepartureDetailsDialog(
                 }
                 item {
                     Text(
-                        text = stopName,
-                        style = MaterialTheme.typography.body2,
-                        color = MaterialTheme.colors.onSurfaceVariant,
-                        modifier = Modifier.fillMaxWidth(),
-                        textAlign = TextAlign.Center
-                    )
-                }
-                item {
-                    Spacer(modifier = Modifier.height(4.dp))
-                }
-                item {
-                    Text(
                         text = "$lineCode - ${departure.destination}",
                         style = MaterialTheme.typography.body1,
                         color = MaterialTheme.colors.onSurface,
@@ -508,12 +541,24 @@ fun DepartureDetailsDialog(
                     item {
                         Text(
                             text = "Plattform ${departure.platformCode}",
-                            style = MaterialTheme.typography.body1,
+                            style = MaterialTheme.typography.body2,
                             color = MaterialTheme.colors.onSurface,
                             modifier = Modifier.fillMaxWidth(),
                             textAlign = TextAlign.Center
                         )
                     }
+                }
+                item {
+                    Spacer(modifier = Modifier.height(4.dp))
+                }
+                item {
+                    Text(
+                        text = "${stopName}",
+                        style = MaterialTheme.typography.body2,
+                        color = MaterialTheme.colors.onSurfaceVariant,
+                        modifier = Modifier.fillMaxWidth(),
+                        textAlign = TextAlign.Center
+                    )
                 }
                 item {
                     Spacer(modifier = Modifier.height(8.dp))
@@ -559,6 +604,54 @@ fun DepartureDetailsDialog(
                             modifier = Modifier.fillMaxWidth(),
                             textAlign = TextAlign.Center
                         )
+                    }
+                }
+                if (destinationStationName != null) {
+                    item {
+                        Spacer(modifier = Modifier.height(8.dp))
+                    }
+                    item {
+                        when {
+                            isLoadingArrival -> Text(
+                                text = "Henter ankomst...",
+                                style = MaterialTheme.typography.body2,
+                                color = MaterialTheme.colors.onSurfaceVariant,
+                                modifier = Modifier.fillMaxWidth(),
+                                textAlign = TextAlign.Center
+                            )
+                            arrivalInfo != null -> {
+                                val isArrivalDelayed = departure.isDelayed || arrivalInfo.isDelayed
+                                Column(
+                                    modifier = Modifier.fillMaxWidth(),
+                                    horizontalAlignment = Alignment.CenterHorizontally
+                                ) {
+                                    Text(
+                                        text = "Ankomst: $destinationStationName",
+                                        style = MaterialTheme.typography.body2,
+                                        color = MaterialTheme.colors.onSurfaceVariant,
+                                        modifier = Modifier.fillMaxWidth(),
+                                        textAlign = TextAlign.Center
+                                    )
+                                    Text(
+                                        text = "Planlagt: ${arrivalInfo.aimedArrivalTime}",
+                                        style = MaterialTheme.typography.body2,
+                                        color = if (isArrivalDelayed) MaterialTheme.colors.error else MaterialTheme.colors.onSurfaceVariant,
+                                        modifier = Modifier.fillMaxWidth(),
+                                        textAlign = TextAlign.Center
+                                    )
+                                    if (isArrivalDelayed) {
+                                        Text(
+                                            text = "Forventet: ${arrivalInfo.expectedArrivalTime}",
+                                            style = MaterialTheme.typography.body2,
+                                            color = Color(0xFF64B5F6),
+                                            modifier = Modifier.fillMaxWidth(),
+                                            textAlign = TextAlign.Center
+                                        )
+                                    }
+                                }
+                            }
+                            else -> Box(modifier = Modifier.fillMaxWidth())
+                        }
                     }
                 }
                 if (!departure.description.isNullOrBlank() || !departure.summary.isNullOrBlank()) {
@@ -1172,6 +1265,142 @@ fun SettingsScreen(
                                     } else {
                                         getOnSurfaceColor()
                                     }
+                                )
+                            }
+                        }
+                    }
+                }
+            }
+        }
+    }
+}
+
+@Composable
+fun DestinationStationSelectionScreen(
+    selectedDestinationStation: String?,
+    searchQuery: String,
+    searchResults: List<no.togavganger.data.StationSearchResult>,
+    isSearchLoading: Boolean,
+    onSearchQueryChanged: (String) -> Unit,
+    onStationSelected: (no.togavganger.data.StationSearchResult) -> Unit,
+    onDismiss: () -> Unit
+) {
+    val scrollState = rememberTransformingLazyColumnState()
+    ScreenScaffold(
+        scrollState = scrollState,
+        edgeButton = {
+            EdgeButton(
+                onClick = onDismiss,
+                buttonSize = EdgeButtonSize.ExtraSmall
+            ) {
+                Text("Tilbake")
+            }
+        },
+        contentPadding = PaddingValues(
+            start = 14.dp,
+            end = 14.dp,
+            top = 14.dp,
+            bottom = 45.dp
+        )
+    ) { contentPadding ->
+        TransformingLazyColumn(
+            state = scrollState,
+            contentPadding = contentPadding,
+            modifier = Modifier.fillMaxSize()
+        ) {
+            item {
+                ListHeader {
+                    Text(
+                        text = "Velg destinasjon",
+                        style = MaterialTheme.typography.title2,
+                        color = MaterialTheme.colors.primary,
+                        modifier = Modifier.fillMaxWidth(),
+                        textAlign = TextAlign.Center
+                    )
+                }
+            }
+            if (selectedDestinationStation != null) {
+                item {
+                    Spacer(modifier = Modifier.height(4.dp))
+                }
+                item {
+                    Text(
+                        text = "Valgt: $selectedDestinationStation",
+                        style = MaterialTheme.typography.body2,
+                        color = MaterialTheme.colors.onSurfaceVariant,
+                        modifier = Modifier.fillMaxWidth(),
+                        textAlign = TextAlign.Center
+                    )
+                }
+            }
+            item {
+                Spacer(modifier = Modifier.height(8.dp))
+            }
+            item {
+                AndroidView(
+                    factory = { ctx ->
+                        EditText(ctx).apply {
+                            hint = "Søk etter stasjon..."
+                            setText(searchQuery)
+                            isSingleLine = true
+                            requestFocus()
+                            post {
+                                val imm = ctx.getSystemService(android.content.Context.INPUT_METHOD_SERVICE) as InputMethodManager
+                                imm.showSoftInput(this, InputMethodManager.SHOW_IMPLICIT)
+                            }
+                            addTextChangedListener(object : android.text.TextWatcher {
+                                override fun beforeTextChanged(s: CharSequence?, start: Int, count: Int, after: Int) {}
+                                override fun onTextChanged(s: CharSequence?, start: Int, before: Int, count: Int) {
+                                    onSearchQueryChanged(s?.toString() ?: "")
+                                }
+                                override fun afterTextChanged(s: android.text.Editable?) {}
+                            })
+                        }
+                    },
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .height(40.dp)
+                        .padding(horizontal = 4.dp)
+                )
+            }
+            if (isSearchLoading) {
+                item {
+                    Spacer(modifier = Modifier.height(8.dp))
+                }
+                item {
+                    Text(
+                        text = "Søker...",
+                        style = MaterialTheme.typography.body2,
+                        color = MaterialTheme.colors.onSurfaceVariant,
+                        modifier = Modifier.fillMaxWidth(),
+                        textAlign = TextAlign.Center
+                    )
+                }
+            } else if (searchResults.isNotEmpty()) {
+                item {
+                    Spacer(modifier = Modifier.height(8.dp))
+                }
+                searchResults.forEach { result ->
+                    item {
+                        Box(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .padding(horizontal = 4.dp)
+                        ) {
+                            Button(
+                                onClick = { onStationSelected(result) },
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .height(38.dp),
+                                colors = ButtonDefaults.secondaryButtonColors(
+                                    backgroundColor = getSurfaceContainerColor(),
+                                    contentColor = getOnSurfaceColor()
+                                )
+                            ) {
+                                Text(
+                                    text = result.name,
+                                    style = MaterialTheme.typography.title3,
+                                    color = getOnSurfaceColor()
                                 )
                             }
                         }

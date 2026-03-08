@@ -9,6 +9,7 @@ import androidx.compose.ui.tooling.preview.Preview
 import androidx.wear.compose.material.MaterialTheme
 import androidx.wear.compose.material3.TimeText
 import androidx.wear.tooling.preview.devices.WearDevices
+import no.togavganger.data.ArrivalInfo
 import no.togavganger.data.Departure
 import no.togavganger.data.LineInfo
 import no.togavganger.data.StationSearchResult
@@ -116,6 +117,9 @@ fun DepartureDetailsDialogPreview() {
             stopName = "Haugenstua stasjon",
             lineCode = "L1",
             stopPlaceId = "NSR:StopPlace:59653",
+            arrivalInfo = null,
+            isLoadingArrival = false,
+            destinationStationName = null,
             activity = null,
             onDismiss = {}
         )
@@ -148,6 +152,9 @@ fun DepartureDetailsDialogPreview2() {
             stopName = "Haugenstua stasjon",
             lineCode = "L1",
             stopPlaceId = "NSR:StopPlace:59653",
+            arrivalInfo = null,
+            isLoadingArrival = false,
+            destinationStationName = null,
             activity = null,
             onDismiss = {}
         )
@@ -169,8 +176,8 @@ fun DepartureDetailsDialogPreview3() {
         val mockDeparture = Departure(
             destination = "Oslo S",
             aimedTime = "22:10",
-            expectedTime = "22:10",
-            isDelayed = false,
+            expectedTime = "22:12",
+            isDelayed = true,
             platformCode = "2"
         )
         DepartureDetailsDialog(
@@ -178,6 +185,9 @@ fun DepartureDetailsDialogPreview3() {
             stopName = "Haugenstua stasjon",
             lineCode = "L1",
             stopPlaceId = "NSR:StopPlace:59653",
+            arrivalInfo = ArrivalInfo("22:35", "22:37", true),
+            isLoadingArrival = false,
+            destinationStationName = "Oslo S",
             activity = null,
             onDismiss = {}
         )
