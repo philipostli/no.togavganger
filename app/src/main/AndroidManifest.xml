@@ -40,6 +40,19 @@
                 android:name="androidx.wear.tiles.PREVIEW"
                 android:resource="@drawable/preview" />
         </service>
+        <service
+            android:name=".tile.SecondaryTileService"
+            android:exported="true"
+            android:label="@string/tile_label_2"
+            android:permission="com.google.android.wearable.permission.BIND_TILE_PROVIDER">
+            <intent-filter>
+                <action android:name="androidx.wear.tiles.action.BIND_TILE_PROVIDER" />
+            </intent-filter>
+
+            <meta-data
+                android:name="androidx.wear.tiles.PREVIEW"
+                android:resource="@drawable/preview" />
+        </service>
 
         <uses-library
             android:name="com.google.android.wearable"

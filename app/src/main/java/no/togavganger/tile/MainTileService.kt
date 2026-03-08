@@ -74,7 +74,8 @@ private fun resources(): ResourceBuilders.Resources {
 fun tileLayout(
     context: Context,
     deviceConfiguration: DeviceParametersBuilders.DeviceParameters,
-    trainData: TrainData
+    trainData: TrainData,
+    tileSource: String = "tile1"
 ) = materialScope(
     context = context,
     deviceConfiguration = deviceConfiguration,
@@ -139,6 +140,12 @@ fun tileLayout(
                                                         "departure_index",
                                                         androidx.wear.protolayout.ActionBuilders.AndroidIntExtra.Builder()
                                                             .setValue(index)
+                                                            .build()
+                                                    )
+                                                    .addKeyToExtraMapping(
+                                                        "tile_source",
+                                                        androidx.wear.protolayout.ActionBuilders.AndroidStringExtra.Builder()
+                                                            .setValue(tileSource)
                                                             .build()
                                                     )
                                                     .build()

@@ -3,9 +3,9 @@ package no.togavganger.data.preferences
 import android.content.Context
 import android.content.SharedPreferences
 
-class StationPreferences(context: Context) {
+class StationPreferences(context: Context, private val slot: Int = 1) {
     private val preferences: SharedPreferences = context.getSharedPreferences(
-        PREFS_NAME,
+        if (slot == 1) PREFS_NAME else "${PREFS_NAME}_$slot",
         Context.MODE_PRIVATE
     )
     fun getSelectedStationId(): String? {

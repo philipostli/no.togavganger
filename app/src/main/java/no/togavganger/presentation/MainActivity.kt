@@ -10,6 +10,7 @@ import androidx.core.splashscreen.SplashScreen.Companion.installSplashScreen
 import android.widget.EditText
 import androidx.wear.tiles.TileService
 import androidx.compose.foundation.background
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -65,11 +66,15 @@ class MainActivity : ComponentActivity() {
         setTheme(android.R.style.Theme_DeviceDefault)
         val departureIndex = intent?.getIntExtra("departure_index", -1)
             ?.takeIf { it >= 0 }
+        val tileSource = intent?.getStringExtra("tile_source")
+        val openStation2Settings = intent?.getBooleanExtra("open_station2_settings", false) == true
         setContent {
             TogavgangerTheme {
                 TrainDeparturesScreen(
                     activity = this,
-                    initialDepartureIndex = departureIndex
+                    initialDepartureIndex = departureIndex,
+                    tileSource = tileSource,
+                    openStation2Settings = openStation2Settings
                 )
             }
         }
@@ -77,6 +82,7 @@ class MainActivity : ComponentActivity() {
     override fun onPause() {
         super.onPause()
         TileService.getUpdater(this).requestUpdate(MainTileService::class.java)
+        TileService.getUpdater(this).requestUpdate(no.togavganger.tile.SecondaryTileService::class.java)
     }
 }
 
@@ -132,11 +138,20 @@ fun TrainDeparturesScreenError(
 fun TrainDeparturesScreen(
     viewModel: TrainViewModel = viewModel(),
     activity: ComponentActivity? = null,
-    initialDepartureIndex: Int? = null
+    initialDepartureIndex: Int? = null,
+    tileSource: String? = null,
+    openStation2Settings: Boolean = false
 ) {
     LaunchedEffect(Unit) {
         if (initialDepartureIndex != null) {
-            viewModel.handleEvent(TrainEvent.SelectDeparture(initialDepartureIndex))
+            if (tileSource == "tile2") {
+                viewModel.handleEvent(TrainEvent.SelectDepartureFromStation2(initialDepartureIndex))
+            } else {
+                viewModel.handleEvent(TrainEvent.SelectDeparture(initialDepartureIndex))
+            }
+        }
+        if (openStation2Settings) {
+            viewModel.handleEvent(TrainEvent.ShowStation2Settings)
         }
     }
     val uiState by viewModel.uiState.collectAsState()
@@ -201,6 +216,54 @@ fun TrainDeparturesScreen(
                 onDismiss = { viewModel.handleEvent(TrainEvent.DismissDestinationSearch) }
             )
         }
+    } else if (uiState.station2ShowLineSelection) {
+        LineSelectionScreen(
+            availableLines = uiState.station2AvailableLines,
+            isLoadingLines = uiState.station2IsLoadingLines,
+            onLineSelected = { line -> viewModel.handleEvent(TrainEvent.Station2SelectLine(line)) },
+            onDismiss = { viewModel.handleEvent(TrainEvent.Station2DismissLineSelection) }
+        )
+    } else if (uiState.station2ShowDestinationSelection) {
+        DestinationSelectionScreen(
+            availableDestinations = uiState.station2AvailableDestinations,
+            selectedDestinations = uiState.station2SelectedDestinations,
+            isLoadingDestinations = uiState.station2IsLoadingDestinations,
+            onToggleDestination = { dest -> viewModel.handleEvent(TrainEvent.Station2ToggleDestination(dest)) },
+            onConfirm = { viewModel.handleEvent(TrainEvent.Station2ConfirmDestinations) },
+            onSearchClick = { viewModel.handleEvent(TrainEvent.Station2ShowDestinationSearch) }
+        )
+        if (uiState.station2ShowDestinationSearch) {
+            DestinationSearchDialog(
+                searchQuery = uiState.station2DestinationSearchQuery,
+                onSearchQueryChanged = { viewModel.handleEvent(TrainEvent.Station2UpdateSearchQuery(it)) },
+                onAddDestination = { viewModel.handleEvent(TrainEvent.Station2AddCustomDestination(it)) },
+                onDismiss = { viewModel.handleEvent(TrainEvent.Station2DismissDestinationSearch) }
+            )
+        }
+    } else if (uiState.showStation2Settings) {
+        Station2SettingsScreen(
+            selectedStation = uiState.station2Name,
+            isSearching = uiState.station2IsSearching,
+            searchQuery = uiState.station2SearchQuery,
+            searchResults = uiState.station2SearchResults,
+            isSearchLoading = uiState.station2IsSearchLoading,
+            selectedLinePublicCode = uiState.station2SelectedLinePublicCode,
+            onToggleSearch = { viewModel.handleEvent(TrainEvent.Station2ToggleSearch) },
+            onStationSelected = { result -> viewModel.handleEvent(TrainEvent.Station2SelectSearchResult(result)) },
+            onLinesClick = { viewModel.handleEvent(TrainEvent.Station2ShowLineSelection) },
+            onClearStation = { viewModel.handleEvent(TrainEvent.Station2ClearStation) },
+            onDismiss = { viewModel.handleEvent(TrainEvent.DismissStation2Settings) }
+        )
+        if (uiState.station2IsSearching && activity != null) {
+            SearchInputDialog(
+                searchQuery = uiState.station2SearchQuery,
+                searchResults = uiState.station2SearchResults,
+                isSearchLoading = uiState.station2IsSearchLoading,
+                onSearchQueryChanged = { query -> viewModel.handleEvent(TrainEvent.Station2UpdateSearchQuery(query)) },
+                onSearchResultSelected = { result -> viewModel.handleEvent(TrainEvent.Station2SelectSearchResult(result)) },
+                onDismiss = { viewModel.handleEvent(TrainEvent.Station2ToggleSearch) }
+            )
+        }
     } else {
     when {
         uiState.isLoading -> {
@@ -225,8 +288,24 @@ fun TrainDeparturesScreen(
             )
         }
         uiState.trainData != null -> {
-            val trainData = uiState.trainData
-            if (trainData != null) {
+            val activeStation = uiState.activeStation
+            val displayData = if (activeStation == 2) uiState.station2TrainData else uiState.trainData
+            val isLoadingActive = activeStation == 2 && uiState.station2IsLoadingTrainData
+
+            if (isLoadingActive) {
+                Box(
+                    modifier = Modifier
+                        .fillMaxSize()
+                        .background(MaterialTheme.colors.background),
+                    contentAlignment = Alignment.Center
+                ) {
+                    Text(
+                        text = "Laster...",
+                        style = MaterialTheme.typography.body1,
+                        color = MaterialTheme.colors.onBackground
+                    )
+                }
+            } else if (displayData != null) {
                 Box(
                     modifier = Modifier
                         .fillMaxSize()
@@ -234,19 +313,51 @@ fun TrainDeparturesScreen(
                 ) {
                     TimeText()
                     TrainListContent(
-                        trainData = trainData,
-                        onDepartureClick = { index -> viewModel.handleEvent(TrainEvent.SelectDeparture(index)) },
-                        onSettingsClick = { viewModel.handleEvent(TrainEvent.ShowSettings) },
-                        onLinesClick = { viewModel.handleEvent(TrainEvent.ShowLineSelection) },
-                        onDestinationStationClick = { viewModel.handleEvent(TrainEvent.ShowDestinationStationSelection) }
+                        trainData = displayData,
+                        onDepartureClick = { index ->
+                            if (activeStation == 2) {
+                                viewModel.handleEvent(TrainEvent.SelectDepartureFromStation2(index))
+                            } else {
+                                viewModel.handleEvent(TrainEvent.SelectDeparture(index))
+                            }
+                        },
+                        onSettingsClick = {
+                            if (activeStation == 2) {
+                                viewModel.handleEvent(TrainEvent.ShowStation2Settings)
+                            } else {
+                                viewModel.handleEvent(TrainEvent.ShowSettings)
+                            }
+                        },
+                        onLinesClick = {
+                            if (activeStation == 2) {
+                                viewModel.handleEvent(TrainEvent.Station2ShowLineSelection)
+                            } else {
+                                viewModel.handleEvent(TrainEvent.ShowLineSelection)
+                            }
+                        },
+                        onDestinationStationClick = { viewModel.handleEvent(TrainEvent.ShowDestinationStationSelection) },
+                        onHeaderClick = { viewModel.handleEvent(TrainEvent.ShowStationSwitcher) }
                     )
+                    if (uiState.showStationSwitcher) {
+                        StationSwitcherDialog(
+                            station1Name = uiState.selectedStationName,
+                            station2Name = uiState.station2Name,
+                            activeStation = activeStation,
+                            onSelectStation = { station -> viewModel.handleEvent(TrainEvent.SwitchToStation(station)) },
+                            onConfigureStation2 = {
+                                viewModel.handleEvent(TrainEvent.DismissStationSwitcher)
+                                viewModel.handleEvent(TrainEvent.ShowStation2Settings)
+                            },
+                            onDismiss = { viewModel.handleEvent(TrainEvent.DismissStationSwitcher) }
+                        )
+                    }
                     uiState.selectedDepartureIndex?.let { index ->
-                        val departure = trainData.departures.getOrNull(index)
+                        val departure = uiState.trainData?.departures?.getOrNull(index)
                         if (departure != null) {
                             DepartureDetailsDialog(
                                 departure = departure,
-                                stopName = trainData.stopName,
-                                lineCode = trainData.lineCode,
+                                stopName = uiState.trainData!!.stopName,
+                                lineCode = uiState.trainData!!.lineCode,
                                 stopPlaceId = uiState.selectedStationId,
                                 arrivalInfo = uiState.arrivalInfo,
                                 isLoadingArrival = uiState.isLoadingArrival,
@@ -256,11 +367,30 @@ fun TrainDeparturesScreen(
                             )
                         }
                     }
+                    uiState.station2SelectedDepartureIndex?.let { index ->
+                        val station2Data = uiState.station2TrainData
+                        if (station2Data != null) {
+                            val departure = station2Data.departures.getOrNull(index)
+                            if (departure != null) {
+                                DepartureDetailsDialog(
+                                    departure = departure,
+                                    stopName = station2Data.stopName,
+                                    lineCode = station2Data.lineCode,
+                                    stopPlaceId = uiState.station2Id,
+                                    arrivalInfo = null,
+                                    isLoadingArrival = false,
+                                    destinationStationName = null,
+                                    activity = activity,
+                                    onDismiss = { viewModel.handleEvent(TrainEvent.DismissStation2Details) }
+                                )
+                            }
+                        }
                     }
                 }
             }
         }
     }
+}
 }
 
 @Composable
@@ -269,7 +399,8 @@ fun TrainListContent(
     onDepartureClick: (Int) -> Unit,
     onSettingsClick: () -> Unit,
     onLinesClick: () -> Unit = {},
-    onDestinationStationClick: () -> Unit = {}
+    onDestinationStationClick: () -> Unit = {},
+    onHeaderClick: () -> Unit = {}
 ) {
     val scrollState = rememberTransformingLazyColumnState()
     ScreenScaffold(
@@ -300,17 +431,21 @@ fun TrainListContent(
                         text = trainData.lineCode,
                         style = MaterialTheme.typography.title2,
                         color = MaterialTheme.colors.primary,
-                        modifier = Modifier.fillMaxWidth(),
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .clickable(onClick = onHeaderClick),
                         textAlign = TextAlign.Center
                     )
                 }
             }
             item {
                 Text(
-                    text = trainData.stopName,
+                    text = "${trainData.stopName} ▾",
                     style = MaterialTheme.typography.body2,
                     color = MaterialTheme.colors.secondary,
-                    modifier = Modifier.fillMaxWidth(),
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .clickable(onClick = onHeaderClick),
                     textAlign = TextAlign.Center
                 )
             }
@@ -395,6 +530,115 @@ fun TrainListContent(
                             style = MaterialTheme.typography.title3,
                             color = getOnSurfaceColor()
                         )
+                    }
+                }
+            }
+        }
+    }
+}
+
+@Composable
+fun StationSwitcherDialog(
+    station1Name: String?,
+    station2Name: String?,
+    activeStation: Int,
+    onSelectStation: (Int) -> Unit,
+    onConfigureStation2: () -> Unit,
+    onDismiss: () -> Unit
+) {
+    Dialog(
+        showDialog = true,
+        onDismissRequest = onDismiss
+    ) {
+        val scrollState = rememberTransformingLazyColumnState()
+        ScreenScaffold(
+            scrollState = scrollState,
+            edgeButton = {
+                EdgeButton(
+                    onClick = onDismiss,
+                    buttonSize = EdgeButtonSize.ExtraSmall
+                ) {
+                    Text("Lukk")
+                }
+            },
+            contentPadding = PaddingValues(
+                start = 14.dp,
+                end = 14.dp,
+                top = 14.dp,
+                bottom = 45.dp
+            )
+        ) { contentPadding ->
+            TransformingLazyColumn(
+                state = scrollState,
+                contentPadding = contentPadding,
+                modifier = Modifier.fillMaxSize()
+            ) {
+                item {
+                    ListHeader {
+                        Text(
+                            text = "Bytt stasjon",
+                            style = MaterialTheme.typography.title3,
+                            color = MaterialTheme.colors.primary,
+                            modifier = Modifier.fillMaxWidth(),
+                            textAlign = TextAlign.Center
+                        )
+                    }
+                }
+                item {
+                    Spacer(modifier = Modifier.height(4.dp))
+                }
+                item {
+                    Box(modifier = Modifier.fillMaxWidth().padding(horizontal = 4.dp)) {
+                        Button(
+                            onClick = { onSelectStation(1) },
+                            modifier = Modifier.fillMaxWidth().height(38.dp),
+                            colors = if (activeStation == 1) {
+                                ButtonDefaults.primaryButtonColors(
+                                    backgroundColor = MaterialTheme.colors.primary,
+                                    contentColor = MaterialTheme.colors.onPrimary
+                                )
+                            } else {
+                                ButtonDefaults.secondaryButtonColors(
+                                    backgroundColor = getSurfaceContainerColor(),
+                                    contentColor = getOnSurfaceColor()
+                                )
+                            }
+                        ) {
+                            Text(
+                                text = station1Name ?: "Stasjon 1",
+                                style = MaterialTheme.typography.title3,
+                                color = if (activeStation == 1) MaterialTheme.colors.onPrimary else getOnSurfaceColor()
+                            )
+                        }
+                    }
+                }
+                item {
+                    Spacer(modifier = Modifier.height(4.dp))
+                }
+                item {
+                    Box(modifier = Modifier.fillMaxWidth().padding(horizontal = 4.dp)) {
+                        Button(
+                            onClick = { if (station2Name != null) onSelectStation(2) else onConfigureStation2() },
+                            enabled = true,
+                            modifier = Modifier.fillMaxWidth().height(38.dp),
+                            colors = if (activeStation == 2) {
+                                ButtonDefaults.primaryButtonColors(
+                                    backgroundColor = MaterialTheme.colors.primary,
+                                    contentColor = MaterialTheme.colors.onPrimary
+                                )
+                            } else {
+                                ButtonDefaults.secondaryButtonColors(
+                                    backgroundColor = getSurfaceContainerColor(),
+                                    contentColor = getOnSurfaceColor()
+                                )
+                            }
+                        ) {
+                            Text(
+                                text = station2Name ?: "Stasjon 2 (ikke valgt)",
+                                style = MaterialTheme.typography.title3,
+                                color = if (activeStation == 2) MaterialTheme.colors.onPrimary else getOnSurfaceColor()
+                            )
+                        }
                     }
                 }
             }
@@ -1269,6 +1513,247 @@ fun SettingsScreen(
                             }
                         }
                     }
+                }
+            }
+        }
+    }
+}
+
+@Composable
+fun Station2SettingsScreen(
+    selectedStation: String?,
+    isSearching: Boolean,
+    searchQuery: String,
+    searchResults: List<no.togavganger.data.StationSearchResult>,
+    isSearchLoading: Boolean,
+    selectedLinePublicCode: String?,
+    onToggleSearch: () -> Unit,
+    onStationSelected: (no.togavganger.data.StationSearchResult) -> Unit,
+    onLinesClick: () -> Unit,
+    onClearStation: () -> Unit,
+    onDismiss: () -> Unit
+) {
+    val scrollState = rememberTransformingLazyColumnState()
+    ScreenScaffold(
+        scrollState = scrollState,
+        edgeButton = {
+            EdgeButton(
+                onClick = onDismiss,
+                buttonSize = EdgeButtonSize.Medium
+            ) {
+                Text("Tilbake")
+            }
+        },
+        contentPadding = PaddingValues(
+            start = 14.dp,
+            end = 14.dp,
+            top = 14.dp,
+            bottom = 45.dp
+        )
+    ) { contentPadding ->
+        TransformingLazyColumn(
+            state = scrollState,
+            contentPadding = contentPadding,
+            modifier = Modifier.fillMaxSize()
+        ) {
+            item {
+                ListHeader {
+                    Text(
+                        text = "Stasjon 2",
+                        style = MaterialTheme.typography.title2,
+                        color = MaterialTheme.colors.primary,
+                        modifier = Modifier.fillMaxWidth(),
+                        textAlign = TextAlign.Center
+                    )
+                }
+            }
+            if (selectedStation != null) {
+                item {
+                    Spacer(modifier = Modifier.height(4.dp))
+                }
+                item {
+                    Text(
+                        text = selectedStation,
+                        style = MaterialTheme.typography.body2,
+                        color = MaterialTheme.colors.onSurfaceVariant,
+                        modifier = Modifier.fillMaxWidth(),
+                        textAlign = TextAlign.Center
+                    )
+                }
+                if (selectedLinePublicCode != null) {
+                    item {
+                        Text(
+                            text = "Linje: $selectedLinePublicCode",
+                            style = MaterialTheme.typography.body2,
+                            color = MaterialTheme.colors.onSurfaceVariant,
+                            modifier = Modifier.fillMaxWidth(),
+                            textAlign = TextAlign.Center
+                        )
+                    }
+                }
+            }
+            item {
+                Spacer(modifier = Modifier.height(8.dp))
+            }
+            if (!isSearching) {
+                item {
+                    Box(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(horizontal = 4.dp)
+                    ) {
+                        Button(
+                            onClick = onToggleSearch,
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .height(38.dp),
+                            colors = ButtonDefaults.secondaryButtonColors(
+                                backgroundColor = getSurfaceContainerColor(),
+                                contentColor = getOnSurfaceColor()
+                            )
+                        ) {
+                            Text(
+                                text = "🔍 Søk stasjon",
+                                style = MaterialTheme.typography.title3,
+                                color = getOnSurfaceColor()
+                            )
+                        }
+                    }
+                }
+                item {
+                    Spacer(modifier = Modifier.height(4.dp))
+                }
+            } else {
+                item {
+                    Box(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(horizontal = 4.dp)
+                    ) {
+                        Button(
+                            onClick = onToggleSearch,
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .height(38.dp),
+                            colors = ButtonDefaults.secondaryButtonColors(
+                                backgroundColor = getSurfaceContainerColor(),
+                                contentColor = getOnSurfaceColor()
+                            )
+                        ) {
+                            Text(
+                                text = searchQuery.ifEmpty { "Søk..." },
+                                style = MaterialTheme.typography.title3,
+                                color = getOnSurfaceColor()
+                            )
+                        }
+                    }
+                }
+                item {
+                    Spacer(modifier = Modifier.height(4.dp))
+                }
+                if (isSearchLoading) {
+                    item {
+                        Text(
+                            text = "Søker...",
+                            style = MaterialTheme.typography.body2,
+                            color = MaterialTheme.colors.onSurfaceVariant,
+                            modifier = Modifier.fillMaxWidth(),
+                            textAlign = TextAlign.Center
+                        )
+                    }
+                } else if (searchResults.isNotEmpty()) {
+                    searchResults.forEach { result ->
+                        item {
+                            Box(
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .padding(horizontal = 4.dp)
+                            ) {
+                                Button(
+                                    onClick = { onStationSelected(result) },
+                                    modifier = Modifier
+                                        .fillMaxWidth()
+                                        .height(38.dp),
+                                    colors = ButtonDefaults.secondaryButtonColors(
+                                        backgroundColor = getSurfaceContainerColor(),
+                                        contentColor = getOnSurfaceColor()
+                                    )
+                                ) {
+                                    Text(
+                                        text = result.name,
+                                        style = MaterialTheme.typography.title3,
+                                        color = getOnSurfaceColor()
+                                    )
+                                }
+                            }
+                        }
+                    }
+                } else if (searchQuery.length >= 2) {
+                    item {
+                        Text(
+                            text = "Ingen resultater",
+                            style = MaterialTheme.typography.body2,
+                            color = MaterialTheme.colors.onSurfaceVariant,
+                            modifier = Modifier.fillMaxWidth(),
+                            textAlign = TextAlign.Center
+                        )
+                    }
+                }
+            }
+            if (selectedStation != null && !isSearching) {
+                item {
+                    Box(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(horizontal = 4.dp)
+                    ) {
+                        Button(
+                            onClick = onLinesClick,
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .height(38.dp),
+                            colors = ButtonDefaults.secondaryButtonColors(
+                                backgroundColor = getSurfaceContainerColor(),
+                                contentColor = getOnSurfaceColor()
+                            )
+                        ) {
+                            Text(
+                                text = "Velg Linjer",
+                                style = MaterialTheme.typography.title3,
+                                color = getOnSurfaceColor()
+                            )
+                        }
+                    }
+                }
+                item {
+                    Spacer(modifier = Modifier.height(4.dp))
+                }
+                item {
+                    Box(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(horizontal = 4.dp)
+                    ) {
+                        Button(
+                            onClick = onClearStation,
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .height(38.dp),
+                            colors = ButtonDefaults.secondaryButtonColors(
+                                backgroundColor = getSurfaceContainerColor(),
+                                contentColor = MaterialTheme.colors.error
+                            )
+                        ) {
+                            Text(
+                                text = "Fjern stasjon 2",
+                                style = MaterialTheme.typography.title3,
+                                color = MaterialTheme.colors.error
+                            )
+                        }
+                    }
+                }
+                item {
+                    Spacer(modifier = Modifier.height(4.dp))
                 }
             }
         }
