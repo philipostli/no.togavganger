@@ -68,7 +68,7 @@
 
             <meta-data
                 android:name="androidx.wear.tiles.PREVIEW"
-                android:resource="@drawable/preview" />
+                android:resource="@drawable/preview2" />
         </service>
 
         <uses-library
